@@ -2,5 +2,6 @@
 // La clé publique (publishable/anon) peut être utilisée dans le navigateur.
 window.MOLDFLOW_CONFIG = {
   supabaseUrl: '',
-  supabaseKey: ''
+  supabaseKey: '',
+  workspaceKey: 'expedit'
 };

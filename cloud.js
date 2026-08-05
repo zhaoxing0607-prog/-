@@ -2,14 +2,19 @@ window.MoldCloud = (() => {
   const $ = selector => document.querySelector(selector);
   const config = window.MOLDFLOW_CONFIG || {};
   const enabled = Boolean(config.supabaseUrl && config.supabaseKey);
-  const sessionKey = 'moldflowSession';
+  const workspaceKey = config.workspaceKey || 'expedit';
+  const sessionKey = 'toolmanagerSession';
+  const legacySessionKey = 'moldflowSession';
   const modifiedKey = 'mouldOpsDataFrModifiedAt';
-  let session = JSON.parse(localStorage.getItem(sessionKey) || 'null');
+  let session = JSON.parse(localStorage.getItem(sessionKey) || localStorage.getItem(legacySessionKey) || 'null');
+  let member = null;
   let pushTimer = null;
 
   const auth = $('#authBackdrop');
   const error = $('#authError');
   const status = $('#syncStatus');
+  const signupButton = $('#signupBtn');
+  const localButton = $('#localModeBtn');
   const setStatus = (text, state = '') => {
     status.textContent = text;
     status.className = `sync-status ${state}`;
@@ -36,6 +41,12 @@ window.MoldCloud = (() => {
     return body;
   }
 
+  function storeSession(nextSession) {
+    session = nextSession;
+    localStorage.setItem(sessionKey, JSON.stringify(session));
+    localStorage.removeItem(legacySessionKey);
+  }
+
   async function refreshSession() {
     if (!session?.refresh_token) return false;
     try {
@@ -43,11 +54,11 @@ window.MoldCloud = (() => {
         method: 'POST',
         body: JSON.stringify({ refresh_token: session.refresh_token })
       });
-      session = refreshed;
-      localStorage.setItem(sessionKey, JSON.stringify(session));
+      storeSession(refreshed);
       return true;
     } catch {
       session = null;
+      member = null;
       localStorage.removeItem(sessionKey);
       return false;
     }
@@ -64,22 +75,38 @@ window.MoldCloud = (() => {
     }
   }
 
+  async function loadMember() {
+    if (!session?.user?.id) return null;
+    const rows = await request(`/rest/v1/toolmanager_members?user_id=eq.${encodeURIComponent(session.user.id)}&select=role,display_name,email,active&limit=1`);
+    member = rows?.[0] || null;
+    if (!member?.active) throw new Error('Compte non autorisé. Contactez XING ZHAO.');
+    window.dispatchEvent(new CustomEvent('toolmanager-role-ready', {
+      detail: { role: member.role, user: session.user, member }
+    }));
+    return member;
+  }
+
   async function pullRecord() {
-    if (!enabled || !session) return null;
-    const rows = await request('/rest/v1/moldflow_state?select=data,updated_at&limit=1');
+    if (!enabled || !session || !member) return null;
+    const rows = await request(`/rest/v1/toolmanager_state?workspace_key=eq.${encodeURIComponent(workspaceKey)}&select=data,updated_at&limit=1`);
     return rows?.[0] || null;
   }
 
   async function pushNow(payload, modifiedAt = new Date().toISOString()) {
-    if (!enabled || !session) return false;
+    if (!enabled || !session || member?.role !== 'admin') return false;
     setStatus('Synchronisation…');
-    await request('/rest/v1/moldflow_state', {
+    await request('/rest/v1/toolmanager_state?on_conflict=workspace_key', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ user_id: session.user.id, data: payload, updated_at: modifiedAt })
+      body: JSON.stringify({
+        workspace_key: workspaceKey,
+        data: payload,
+        updated_at: modifiedAt,
+        updated_by: session.user.id
+      })
     });
     localStorage.setItem(modifiedKey, modifiedAt);
-    setStatus('Synchronisé', 'online');
+    setStatus('Synchronisé · Administrateur', 'online');
     return true;
   }
 
@@ -88,48 +115,48 @@ window.MoldCloud = (() => {
       const remote = await pullRecord();
       const localModified = localStorage.getItem(modifiedKey);
       if (!remote) {
-        await pushNow(localData, localModified || new Date().toISOString());
+        if (member?.role === 'admin') await pushNow(localData, localModified || new Date().toISOString());
         return localData;
       }
-      if (localModified && new Date(localModified) > new Date(remote.updated_at)) {
+      if (member?.role === 'admin' && localModified && new Date(localModified) > new Date(remote.updated_at)) {
         await pushNow(localData, localModified);
         return localData;
       }
       localStorage.setItem(modifiedKey, remote.updated_at);
-      setStatus('Synchronisé', 'online');
+      setStatus(member?.role === 'admin' ? 'Synchronisé · Administrateur' : 'Mode lecture seule', member?.role === 'admin' ? 'online' : 'readonly');
       return remote.data;
-    } catch {
+    } catch (syncError) {
       if (!session) {
         setStatus('Session expirée · reconnectez-vous', 'error');
         showLogin();
       } else {
-        setStatus('Hors connexion · sauvegarde locale', 'error');
+        setStatus(syncError.message || 'Accès refusé', 'error');
       }
       return localData;
     }
   }
 
-  async function login(email, password, signup = false) {
+  async function login(email, password) {
     error.textContent = '';
     try {
-      const path = signup ? '/auth/v1/signup' : '/auth/v1/token?grant_type=password';
-      session = await rawRequest(path, { method: 'POST', body: JSON.stringify({ email, password }) });
-      if (!session.access_token && signup) {
-        error.textContent = 'Consultez votre e-mail pour confirmer le compte.';
-        return;
-      }
-      localStorage.setItem(sessionKey, JSON.stringify(session));
+      const nextSession = await rawRequest('/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      storeSession(nextSession);
+      await loadMember();
       auth.classList.remove('open');
       const localData = JSON.parse(localStorage.getItem('mouldOpsDataFr') || 'null');
       const latest = await chooseLatest(localData);
       window.dispatchEvent(new CustomEvent('moldflow-cloud-ready', { detail: latest }));
     } catch (loginError) {
       error.textContent = loginError.message;
+      setStatus('Accès non autorisé', 'error');
     }
   }
 
   function push(payload) {
-    if (!enabled || !session) return;
+    if (!enabled || !session || member?.role !== 'admin') return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(async () => {
       try {
@@ -148,11 +175,20 @@ window.MoldCloud = (() => {
       setStatus('Mode local · cloud non configuré');
       return localData;
     }
+    signupButton.hidden = true;
+    localButton.hidden = true;
     if (!session) {
       showLogin();
       return localData;
     }
-    return chooseLatest(localData);
+    try {
+      await loadMember();
+      return chooseLatest(localData);
+    } catch (accessError) {
+      setStatus(accessError.message || 'Accès non autorisé', 'error');
+      showLogin();
+      return localData;
+    }
   }
 
   $('#authForm').onsubmit = event => {
@@ -160,12 +196,18 @@ window.MoldCloud = (() => {
     const form = new FormData(event.target);
     login(form.get('email'), form.get('password'));
   };
-  $('#signupBtn').onclick = () => {
-    const form = new FormData($('#authForm'));
-    login(form.get('email'), form.get('password'), true);
+  signupButton.onclick = () => {
+    error.textContent = 'Les comptes sont créés uniquement sur invitation.';
   };
-  $('#localModeBtn').onclick = () => auth.classList.remove('open');
+  localButton.onclick = () => auth.classList.remove('open');
   status.onclick = () => { if (enabled && !session) showLogin(); };
 
-  return { start, push, showLogin, enabled };
+  return {
+    start,
+    push,
+    showLogin,
+    enabled,
+    canWrite: () => !enabled || member?.role === 'admin',
+    getRole: () => member?.role || (enabled ? null : 'admin')
+  };
 })();
