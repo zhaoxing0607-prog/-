@@ -3,22 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MoldFlow · Gestion des moules</title>
+  <meta name="theme-color" content="#0b2f24" />
+  <title>Expedit ToolManager · Gestion des outillages</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">M</div><div><b>MoldFlow</b><span>MOULD OPS</span></div></div>
+    <div class="brand"><div class="brand-mark">ET</div><div><b>Expedit ToolManager</b><span>GESTION DES OUTILLAGES</span></div></div>
     <nav id="nav">
-      <button class="nav-item active" data-view="dashboard"><i>⌂</i>Tableau de bord</button>
-      <button class="nav-item" data-view="projects"><i>▦</i>Projets</button>
+      <button class="nav-item active" data-view="dashboard"><i>⌁</i>Tableau de bord</button>
+      <button class="nav-item" data-view="parts"><i>⚙</i>Catalogue de pièces</button>
       <button class="nav-item" data-view="moulds"><i>⬡</i>Parc de moules</button>
-      <button class="nav-item" data-view="repairs"><i>⚒</i>Pannes et réparations</button>
-      <button class="nav-item" data-view="purchases"><i>⌁</i>Achats</button>
-      <button class="nav-item" data-view="reports"><i>⌁</i>Rapports</button>
+      <button class="nav-item" data-view="projects"><i>▥</i>Fabrication de moules</button>
+      <button class="nav-item" data-view="repairs"><i>🔧</i>Pannes et réparations</button>
+      <button class="nav-item" data-view="purchases"><i>▰</i>Achats</button>
+      <button class="nav-item" data-view="reports"><i>▤</i>Rapports</button>
     </nav>
-    <div class="side-bottom"><div class="avatar">LM</div><div><b>Louis Martin</b><span>Ingénieur mécanique</span></div><button id="resetBtn" title="Restaurer les données de démonstration">↻</button></div>
+    <div class="side-bottom"><div class="avatar">XZ</div><div><b>XING ZHAO</b><span>Ingénieur mécanique</span></div><button id="resetBtn" title="Restaurer les données de démonstration">↻</button></div>
   </aside>
 
   <main>
@@ -29,7 +31,7 @@
   <div class="modal-backdrop" id="modalBackdrop">
     <section class="modal"><div class="modal-head"><div><span class="eyebrow" id="modalEyebrow">NOUVEAU</span><h2 id="modalTitle">Nouveau projet</h2></div><button class="close-btn" id="closeModal">×</button></div><form id="entityForm"><div id="formFields" class="form-grid"></div><div class="modal-actions"><button type="button" class="secondary" id="cancelModal">Annuler</button><button type="submit" class="primary">Enregistrer</button></div></form></section>
   </div>
-  <div class="auth-backdrop" id="authBackdrop"><section class="auth-card"><div class="brand-mark">M</div><span class="eyebrow">MOLDFLOW CLOUD</span><h2>Connexion</h2><p>Connectez-vous pour retrouver vos projets sur tous vos appareils.</p><form id="authForm"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required placeholder="nom@entreprise.fr"></label><label>Mot de passe<input name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="6 caractères minimum"></label><div id="authError"></div><button class="primary" type="submit">Se connecter</button><button class="secondary auth-switch" type="button" id="signupBtn">Créer un compte</button></form><button class="local-link" id="localModeBtn">Continuer en mode local</button></section></div>
+  <div class="auth-backdrop" id="authBackdrop"><section class="auth-card"><div class="brand-mark">ET</div><span class="eyebrow">EXPEDIT TOOLMANAGER</span><h2>Connexion</h2><p>Connectez-vous pour retrouver vos projets sur tous vos appareils.</p><form id="authForm"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required placeholder="nom@entreprise.fr"></label><label>Mot de passe<input name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="6 caractères minimum"></label><div id="authError"></div><button class="primary" type="submit">Se connecter</button><button class="secondary auth-switch" type="button" id="signupBtn">Créer un compte</button></form><button class="local-link" id="localModeBtn">Continuer en mode local</button></section></div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
   <script src="cloud.js"></script>
   <script src="app.js"></script>

@@ -7,12 +7,15 @@ create table if not exists public.moldflow_state (
 
 alter table public.moldflow_state enable row level security;
 
+drop policy if exists "read own moldflow data" on public.moldflow_state;
 create policy "read own moldflow data" on public.moldflow_state
 for select to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "create own moldflow data" on public.moldflow_state;
 create policy "create own moldflow data" on public.moldflow_state
 for insert to authenticated with check ((select auth.uid()) = user_id);
 
+drop policy if exists "update own moldflow data" on public.moldflow_state;
 create policy "update own moldflow data" on public.moldflow_state
 for update to authenticated
 using ((select auth.uid()) = user_id)
