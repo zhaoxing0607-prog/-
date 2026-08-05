@@ -118,6 +118,16 @@ window.MoldCloud = (() => {
         if (member?.role === 'admin') await pushNow(localData, localModified || new Date().toISOString());
         return localData;
       }
+      const remoteIsEmpty = remote.data == null
+        || (typeof remote.data === 'object' && !Array.isArray(remote.data) && Object.keys(remote.data).length === 0);
+      const localHasData = localData != null
+        && (typeof localData !== 'object' || Array.isArray(localData) || Object.keys(localData).length > 0);
+      // A new workspace is created with an empty JSON object. On the first
+      // administrator login, seed it with the existing local application data.
+      if (member?.role === 'admin' && remoteIsEmpty && localHasData) {
+        await pushNow(localData, localModified || new Date().toISOString());
+        return localData;
+      }
       if (member?.role === 'admin' && localModified && new Date(localModified) > new Date(remote.updated_at)) {
         await pushNow(localData, localModified);
         return localData;
