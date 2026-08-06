@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b2f24" />
   <title>Expedit ToolManager · Gestion des outillages</title>
-  <link rel="stylesheet" href="styles.css?v=20260806-sertissage-machine" />
+  <link rel="stylesheet" href="styles.css?v=20260807-sertissage-toggle-fix" />
   <script src="config.js?v=20260806-1532"></script>
 </head>
 <body>
@@ -40,7 +40,7 @@
     <section class="modal ticket-modal achat-request-modal"><div class="modal-head"><div><span class="eyebrow">DEMANDE D’ACHAT</span><h2>Demander un achat</h2></div><button class="close-btn" id="closeAchatTicketModal" type="button" title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="achatTicketForm"><div class="form-grid"><div class="field full"><label>Composants à acheter</label><div id="achatTicketComponentRows"></div><div class="purchase-tools"><button type="button" class="add-component" data-add-achat-ticket-component>＋ Ajouter un composant</button></div></div><div class="field full"><label>Description / besoin</label><textarea name="description" placeholder="Précisez les références, dimensions ou besoins…"></textarea></div><div class="field full"><label>Demandeur</label><input id="achatTicketRequester" readonly></div><div class="ticket-form-error full" id="achatTicketFormError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" id="cancelAchatTicketModal">Annuler</button><button type="submit" class="primary">Envoyer la demande</button></div></form></section>
   </div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
-  <script src="cloud.js?v=20260806-sertissage-machine"></script>
-  <script src="app.js?v=20260806-sertissage-machine"></script>
+  <script src="cloud.js?v=20260807-sertissage-toggle-fix"></script>
+  <script src="app.js?v=20260807-sertissage-toggle-fix"></script>
 </body>
 </html>
