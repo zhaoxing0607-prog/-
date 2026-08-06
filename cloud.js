@@ -165,6 +165,33 @@ window.MoldCloud = (() => {
     }
   }
 
+  async function logout() {
+    if (pushTimer) await new Promise(resolve => setTimeout(resolve, 650));
+    const accessToken = session?.access_token;
+    try {
+      if (enabled && accessToken) {
+        await rawRequest('/auth/v1/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+      }
+    } catch {
+      // La session locale doit toujours être fermée, même hors connexion.
+    }
+    clearTimeout(pushTimer);
+    pushTimer = null;
+    session = null;
+    member = null;
+    localStorage.removeItem(sessionKey);
+    localStorage.removeItem(legacySessionKey);
+    const authForm = $('#authForm');
+    if (authForm) authForm.reset();
+    error.textContent = '';
+    setStatus('Déconnecté · connexion requise', 'error');
+    showLogin();
+    window.dispatchEvent(new CustomEvent('toolmanager-logged-out'));
+  }
+
   function push(payload) {
     if (!enabled || !session || member?.role !== 'admin') return;
     clearTimeout(pushTimer);
@@ -215,6 +242,7 @@ window.MoldCloud = (() => {
   return {
     start,
     push,
+    logout,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',
