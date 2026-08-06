@@ -11,6 +11,7 @@ create table if not exists public.toolmanager_achat_tickets (
   quantity numeric not null default 1,
   material text,
   heat_treated boolean not null default false,
+  components jsonb not null default '[]'::jsonb,
   description text,
   requester_id uuid not null references auth.users(id) on delete cascade,
   requester_name text not null,
@@ -21,6 +22,18 @@ create table if not exists public.toolmanager_achat_tickets (
   reviewed_at timestamptz,
   reviewed_by uuid references auth.users(id)
 );
+
+-- Migration compatible avec les tickets créés dans la première version.
+alter table public.toolmanager_achat_tickets
+add column if not exists components jsonb not null default '[]'::jsonb;
+update public.toolmanager_achat_tickets
+set components = jsonb_build_array(jsonb_build_object(
+  'name', component,
+  'qty', quantity,
+  'material', coalesce(material, ''),
+  'heatTreated', heat_treated
+))
+where components = '[]'::jsonb and component is not null;
 
 alter table public.toolmanager_achat_tickets enable row level security;
 grant select, insert, update, delete on public.toolmanager_achat_tickets to authenticated;

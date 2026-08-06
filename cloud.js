@@ -272,18 +272,18 @@ window.MoldCloud = (() => {
 
   async function createAchatTicket(ticket) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
+    const first = components[0] || {};
     const rows = await request('/rest/v1/toolmanager_achat_tickets', {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify({
         workspace_key: workspaceKey,
-        mould_id: ticket.mouldId || null,
-        project_id: ticket.projectId || null,
-        repair_id: ticket.repairId || null,
-        component: ticket.component,
-        quantity: Number(ticket.quantity) || 1,
-        material: ticket.material || null,
-        heat_treated: Boolean(ticket.heatTreated),
+        component: first.name,
+        quantity: Number(first.qty) || 1,
+        material: first.material || null,
+        heat_treated: Boolean(first.heatTreated),
+        components,
         description: ticket.description || null,
         requester_id: session.user.id,
         requester_name: member.display_name || member.email || session.user.email,
