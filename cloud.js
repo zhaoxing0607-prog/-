@@ -214,20 +214,30 @@ window.MoldCloud = (() => {
 
   async function createPanneTicket({ mouldId, component, description }) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
-    const rows = await request('/rest/v1/toolmanager_panne_tickets', {
+    const basePayload = {
+      workspace_key: workspaceKey,
+      mould_id: mouldId,
+      description,
+      requester_id: session.user.id,
+      requester_name: member.display_name || member.email || session.user.email,
+      requester_email: member.email || session.user.email,
+      status: 'pending'
+    };
+    const submit = body => request('/rest/v1/toolmanager_panne_tickets', {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({
-        workspace_key: workspaceKey,
-        mould_id: mouldId,
-        component,
-        description,
-        requester_id: session.user.id,
-        requester_name: member.display_name || member.email || session.user.email,
-        requester_email: member.email || session.user.email,
-        status: 'pending'
-      })
+      body: JSON.stringify(body)
     });
+    let rows;
+    try {
+      rows = await submit({ ...basePayload, component });
+    } catch (ticketError) {
+      if (!/component.*schema cache/i.test(ticketError.message || '')) throw ticketError;
+      rows = await submit({
+        ...basePayload,
+        description: `[Composant : ${component}]\n${description}`
+      });
+    }
     return rows?.[0] || null;
   }
 
