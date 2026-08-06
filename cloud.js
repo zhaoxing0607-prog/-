@@ -207,6 +207,44 @@ window.MoldCloud = (() => {
 
   function showLogin() { auth.classList.add('open'); }
 
+  async function listPanneTickets() {
+    if (!enabled || !session || !member) return [];
+    return request(`/rest/v1/toolmanager_panne_tickets?workspace_key=eq.${encodeURIComponent(workspaceKey)}&select=*&order=created_at.desc`);
+  }
+
+  async function createPanneTicket({ mouldId, description }) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const rows = await request('/rest/v1/toolmanager_panne_tickets', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        workspace_key: workspaceKey,
+        mould_id: mouldId,
+        description,
+        requester_id: session.user.id,
+        requester_name: member.display_name || member.email || session.user.email,
+        requester_email: member.email || session.user.email,
+        status: 'pending'
+      })
+    });
+    return rows?.[0] || null;
+  }
+
+  async function reviewPanneTicket(id, statusValue, repairId = null) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Validation administrateur requise');
+    const rows = await request(`/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        status: statusValue,
+        repair_id: repairId,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: session.user.id
+      })
+    });
+    return rows?.[0] || null;
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -243,9 +281,14 @@ window.MoldCloud = (() => {
     start,
     push,
     logout,
+    listPanneTickets,
+    createPanneTicket,
+    reviewPanneTicket,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',
-    getRole: () => member?.role || (enabled ? null : 'admin')
+    getRole: () => member?.role || (enabled ? null : 'admin'),
+    getMember: () => member,
+    getUserId: () => session?.user?.id || null
   };
 })();

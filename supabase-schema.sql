@@ -102,6 +102,10 @@ with check (
 create index if not exists toolmanager_members_role_idx
 on public.toolmanager_members (user_id, role, active);
 
+-- Les demandes de panne sont installées par le script complémentaire
+-- panne-ticket-schema.sql. Les viewers peuvent soumettre une demande, mais
+-- seul un administrateur peut la valider ou la refuser.
+
 -- Pour ajouter un collègue après son invitation, remplacer son adresse :
 -- insert into public.toolmanager_members (user_id, email, display_name, role)
 -- select id, email, 'Nom du collègue', 'viewer'
