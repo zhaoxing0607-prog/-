@@ -265,6 +265,59 @@ window.MoldCloud = (() => {
     return true;
   }
 
+  async function listAchatTickets() {
+    if (!enabled || !session || !member) return [];
+    return request(`/rest/v1/toolmanager_achat_tickets?workspace_key=eq.${encodeURIComponent(workspaceKey)}&select=*&order=created_at.desc`);
+  }
+
+  async function createAchatTicket(ticket) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const rows = await request('/rest/v1/toolmanager_achat_tickets', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        workspace_key: workspaceKey,
+        mould_id: ticket.mouldId || null,
+        project_id: ticket.projectId || null,
+        repair_id: ticket.repairId || null,
+        component: ticket.component,
+        quantity: Number(ticket.quantity) || 1,
+        material: ticket.material || null,
+        heat_treated: Boolean(ticket.heatTreated),
+        description: ticket.description || null,
+        requester_id: session.user.id,
+        requester_name: member.display_name || member.email || session.user.email,
+        requester_email: member.email || session.user.email,
+        status: 'pending'
+      })
+    });
+    return rows?.[0] || null;
+  }
+
+  async function reviewAchatTicket(id, statusValue, purchaseId = null) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Validation administrateur requise');
+    const rows = await request(`/rest/v1/toolmanager_achat_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        status: statusValue,
+        purchase_id: purchaseId,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: session.user.id
+      })
+    });
+    return rows?.[0] || null;
+  }
+
+  async function deleteAchatTicket(id) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Suppression administrateur requise');
+    await request(`/rest/v1/toolmanager_achat_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    });
+    return true;
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -305,6 +358,10 @@ window.MoldCloud = (() => {
     createPanneTicket,
     reviewPanneTicket,
     deletePanneTicket,
+    listAchatTickets,
+    createAchatTicket,
+    reviewAchatTicket,
+    deleteAchatTicket,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',
