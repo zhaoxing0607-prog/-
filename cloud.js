@@ -212,7 +212,7 @@ window.MoldCloud = (() => {
     return request(`/rest/v1/toolmanager_panne_tickets?workspace_key=eq.${encodeURIComponent(workspaceKey)}&select=*&order=created_at.desc`);
   }
 
-  async function createPanneTicket({ mouldId, description }) {
+  async function createPanneTicket({ mouldId, component, description }) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const rows = await request('/rest/v1/toolmanager_panne_tickets', {
       method: 'POST',
@@ -220,6 +220,7 @@ window.MoldCloud = (() => {
       body: JSON.stringify({
         workspace_key: workspaceKey,
         mould_id: mouldId,
+        component,
         description,
         requester_id: session.user.id,
         requester_name: member.display_name || member.email || session.user.email,
