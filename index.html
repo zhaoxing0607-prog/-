@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b2f24" />
   <title>Expedit ToolManager · Gestion des outillages</title>
-  <link rel="stylesheet" href="styles.css?v=20260806-logout" />
+  <link rel="stylesheet" href="styles.css?v=20260806-logout-visible" />
   <script src="config.js?v=20260806-1532"></script>
 </head>
 <body>
@@ -21,10 +21,11 @@
       <button class="nav-item" data-view="reports"><i>▤</i>Rapports</button>
     </nav>
     <div class="side-bottom"><div class="avatar" id="profileAvatar">XZ</div><div><b id="profileName">XING ZHAO</b><span id="profileRole">Ingénieur mécanique</span></div><button id="resetBtn" title="Restaurer les données de démonstration">↻</button></div>
+    <button class="sidebar-logout" id="sidebarLogoutBtn" type="button"><span>⏻</span> Se déconnecter</button>
   </aside>
 
   <main>
-    <header><div><h1 id="pageTitle">Tableau de bord</h1><p id="pageDesc">Suivez vos moules et projets en temps réel</p></div><div class="header-actions"><label class="search">⌕<input id="globalSearch" placeholder="Rechercher un projet, moule, composant…" /></label><button class="icon-btn" title="Notifications">●</button><button class="logout-button" id="logoutBtn" type="button" title="Se déconnecter"><span>↪</span><b>Déconnexion</b></button><button class="primary" id="mainAddBtn">＋ Nouveau projet</button></div></header>
+    <header><div><h1 id="pageTitle">Tableau de bord</h1><p id="pageDesc">Suivez vos moules et projets en temps réel</p></div><div class="header-actions"><label class="search">⌕<input id="globalSearch" placeholder="Rechercher un projet, moule, composant…" /></label><button class="icon-btn" title="Notifications">●</button><button class="logout-button" id="logoutBtn" type="button" title="Quitter le système"><span>⏻</span><b>Quitter le système</b></button><button class="primary" id="mainAddBtn">＋ Nouveau projet</button></div></header>
     <div id="content"></div>
   </main>
 
@@ -34,6 +35,6 @@
   <div class="auth-backdrop" id="authBackdrop"><section class="auth-card"><div class="brand-mark">ET</div><span class="eyebrow">EXPEDIT TOOLMANAGER</span><h2>Connexion</h2><p>Accès réservé aux collaborateurs autorisés par EXPEDIT. Les comptes sont créés sur invitation.</p><form id="authForm"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" required placeholder="nom@entreprise.fr"></label><label>Mot de passe<input name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="6 caractères minimum"></label><div id="authError"></div><button class="primary" type="submit">Se connecter</button><button class="secondary auth-switch" type="button" id="signupBtn" hidden>Créer un compte</button></form><button class="local-link" id="localModeBtn">Continuer en mode local</button></section></div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
   <script src="cloud.js?v=20260806-logout"></script>
-  <script src="app.js?v=20260806-logout"></script>
+  <script src="app.js?v=20260806-logout-visible"></script>
 </body>
 </html>
