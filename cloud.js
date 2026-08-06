@@ -256,6 +256,15 @@ window.MoldCloud = (() => {
     return rows?.[0] || null;
   }
 
+  async function deletePanneTicket(id) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Suppression administrateur requise');
+    await request(`/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    });
+    return true;
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -295,6 +304,7 @@ window.MoldCloud = (() => {
     listPanneTickets,
     createPanneTicket,
     reviewPanneTicket,
+    deletePanneTicket,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',

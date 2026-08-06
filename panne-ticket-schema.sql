@@ -27,7 +27,7 @@ alter table public.toolmanager_panne_tickets
 alter column component set not null;
 
 alter table public.toolmanager_panne_tickets enable row level security;
-grant select, insert, update on public.toolmanager_panne_tickets to authenticated;
+grant select, insert, update, delete on public.toolmanager_panne_tickets to authenticated;
 grant usage, select on sequence public.toolmanager_panne_tickets_id_seq to authenticated;
 
 drop policy if exists "members can read panne tickets" on public.toolmanager_panne_tickets;
@@ -59,6 +59,18 @@ with check (
   and exists (
     select 1 from public.toolmanager_members member
     where member.user_id = (select auth.uid()) and member.active = true
+  )
+);
+
+drop policy if exists "admins can delete panne tickets" on public.toolmanager_panne_tickets;
+create policy "admins can delete panne tickets"
+on public.toolmanager_panne_tickets for delete to authenticated
+using (
+  workspace_key = 'expedit'
+  and exists (
+    select 1 from public.toolmanager_members member
+    where member.user_id = (select auth.uid())
+      and member.active = true and member.role = 'admin'
   )
 );
 
