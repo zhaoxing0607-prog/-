@@ -24,7 +24,7 @@ const seed={
 let data=JSON.parse(localStorage.getItem('mouldOpsDataFr')||'null')||structuredClone(seed),view='dashboard',filter='Tous',partFamilyFilter='Toutes',partMaterialFilter='Toutes',partThicknessFilter='Toutes',partUnassociatedOnly=false,mouldUnassociatedOnly=false,selectedProjectId=null,selectedPartId=null,selectedMouldId=null,selectedRepairId=null,selectedPurchaseId=null,panneTickets=[];
 data.parts=data.parts||[];
 const projectStatuses=['Amont','Conception','Mise en plan','Usinage','Mise au plan et essai','Validé'];
-const materials=['Acier','Laiton','Acier inoxydable','Aluminium'];
+const materials=['Acier','Laiton','Acier inoxydable','Aluminium','Plastique'];
 const partFamilies=['CULOT ANNEAU EXPEDIT','KDR ASTOR'];
 const partFamily=p=>p.family||(/CUL[OU]T|ANNEAU|EXPEDIT/i.test(p.name||'')?'CULOT ANNEAU EXPEDIT':/KDR|ASTOR/i.test(p.name||'')?'KDR ASTOR':'');
 const mouldStatuses=['En construction','Dispo','Panne'];
