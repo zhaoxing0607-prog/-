@@ -90,7 +90,7 @@ fields.projects.splice(4,0,['parentId','Projet parent','project-parent','']);
 fields.projects.splice(5,0,['mouldType','Type de fabrication','select',['Emboutissage','Sertissage','Pièce unitaire']],['linkedPartIds','Pièces associées','multi-parts','']);
 fields.parts=[['id','ID de la pièce','text','PC-003'],['name','Nom de la pièce','text',''],['family','Famille','select',partFamilies],['material','Matière','select',materials],['thickness','Épaisseur (mm)','number','0']];
 fields.parts.push(['relatedMouldIds','Moules associés','multi-moulds','']);
-fields.moulds.splice(4,0,['mouldCategory','Type de moule','select',['Emboutissage','Sertissage']],['linkedPartIds','Pièces associées','multi-parts',''],['stripWidth','Largeur de bande (mm)','number','0'],['maxThickness','Épaisseur maximale (mm)','number','0'],['rollingPitch','Pas de laminage (mm)','number" step="any','0'],['utilization','Taux d’utilisation (%)','number','0']);
+fields.moulds.splice(4,0,['mouldCategory','Type de moule','select',['Emboutissage','Sertissage','Injection']],['linkedPartIds','Pièces associées','multi-parts',''],['stripWidth','Largeur de bande (mm)','number','0'],['maxThickness','Épaisseur maximale (mm)','number','0'],['rollingPitch','Pas de laminage (mm)','number" step="any','0'],['utilization','Taux d’utilisation (%)','number','0']);
 fields.moulds=fields.moulds.filter(field=>field[0]!=='type');
 fields.moulds.splice(fields.moulds.findIndex(field=>field[0]==='mouldCategory')+1,0,['machine','Machine associée','select',['Frapper','M1500','AUTO9500','PRESS1000','PRESS8000']]);
 let cycleField=fields.moulds.find(x=>x[0]==='cycles');cycleField[0]='piecesPerStroke';cycleField[1]='Nombre de pièces / coup';
