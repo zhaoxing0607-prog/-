@@ -61,7 +61,7 @@ h1{font-family:inherit;font-size:22px;letter-spacing:-.5px}.search{width:min(280
 
 .modal-head{position:sticky;top:-25px;z-index:4;background:#fff;margin:-25px -25px 22px;padding:25px 25px 14px;border-bottom:1px solid var(--line)}.close-btn{flex:0 0 auto;background:#f5dfdc;color:#a33d31;font-weight:800}.close-btn:hover{background:#b84a3d;color:#fff}@media(max-width:640px){.modal-head{top:-20px;margin:-20px -20px 18px;padding:20px 20px 13px}}
 
-.mould-status{font-weight:800}.mould-status.status-panne{color:#a43b31;background:#fff0ed;border-color:#efc1ba}.mould-status.status-dispo{color:#216447;background:#e5f2ea;border-color:#bddcc9}.mould-status.status-construction{color:#a85b19;background:#fff3e3;border-color:#efd0a8}
+.mould-status{font-weight:800}.mould-status.status-panne,.mould-status.status-conception{color:#a43b31;background:#fff0ed;border-color:#efc1ba}.mould-status.status-dispo,.mould-status.status-valide{color:#216447;background:#e5f2ea;border-color:#bddcc9}.mould-status.status-construction{color:#a85b19;background:#fff3e3;border-color:#efd0a8}
 
 .project-link .project-name{margin-top:5px;color:#345c49;font-size:11px;font-weight:800;letter-spacing:.15px}.part-name-chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;max-width:190px;padding:7px 10px;text-align:left;white-space:normal}.part-name-chip b{font-size:10px}.part-name-chip span{font-size:10px;line-height:1.25;color:#243d31;font-weight:800}.part-name-chip:hover span{color:var(--green)}
 
