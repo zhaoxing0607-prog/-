@@ -91,3 +91,25 @@ h1{font-family:inherit;font-size:22px;letter-spacing:-.5px}.search{width:min(280
 .progress[class*="progress-tone-"] span{background:var(--progress-color);border-radius:999px;box-shadow:0 1px 4px color-mix(in srgb,var(--progress-color) 42%,transparent)}
 .progress-label[class*="progress-tone-"]{align-items:center;margin-bottom:7px;font-weight:700;color:#536159}
 .progress-label[class*="progress-tone-"] b{min-width:48px;padding:4px 8px;border:1px solid var(--progress-border);border-radius:999px;background:var(--progress-tint);color:var(--progress-text);font-size:11px;line-height:1;text-align:center;box-shadow:0 1px 2px rgba(13,62,43,.08)}
+
+/* High-contrast project workflow. */
+.workflow-card{border-color:#d4e2da;box-shadow:0 10px 28px rgba(12,64,48,.07)}
+.workflow-six{gap:14px}
+.workflow-step{min-width:0;padding:13px 11px;border:1px solid transparent;border-radius:13px}
+.workflow-step.done{background:#edf7f1;border-color:#badbc9}
+.workflow-step.active{background:#fff3e6;border:2px solid #ef8a32;box-shadow:0 7px 18px rgba(239,138,50,.2);transform:translateY(-3px)}
+.workflow-step.pending{background:#f7f9f8;border-color:#e2e7e4}
+.workflow-step .step-marker{width:42px;height:42px;font-size:16px;box-shadow:0 0 0 4px #fff}
+.workflow-step.done .step-marker{background:#08704b;box-shadow:0 0 0 5px #cfe9db}
+.workflow-step.active .step-marker{background:#ed7c24;box-shadow:0 0 0 6px #ffd9bb}
+.workflow-step:not(:last-child):after{top:32px;left:52px;right:-20px;height:4px;border-radius:999px;background:#d5ddd8}
+.workflow-step.done:not(:last-child):after{background:#159064;box-shadow:0 1px 3px rgba(21,144,100,.25)}
+.workflow-step .step-body{margin-top:15px}
+.workflow-step .step-body h4{font-size:13px;line-height:1.25;margin-bottom:8px}
+.workflow-step .step-body span{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.25px}
+.workflow-step.done .step-body span{background:#d3ecde;color:#086745}
+.workflow-step.active .step-body span{background:#ffd9bb;color:#a84c08}
+.workflow-step.pending .step-body span{background:#e6ebe8;color:#737e77}
+.workflow-step .step-body p{font-weight:700;color:#34483e}
+.workflow-step .step-body small{font-weight:700}
+@media(max-width:1100px){.workflow-step:not(:last-child):after{top:53px;bottom:-16px;left:32px;width:4px;height:auto;right:auto}.workflow-step .step-body{margin-top:0}.workflow-step.active{transform:none}}
