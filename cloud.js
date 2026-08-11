@@ -241,6 +241,17 @@ window.MoldCloud = (() => {
     return rows?.[0] || null;
   }
 
+  async function updatePanneTicket(id, { mouldId, component, description }) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const rows = await request(`/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ mould_id: mouldId, component, description })
+    });
+    if (!rows?.length) throw new Error('Ce ticket a déjà été traité ou ne peut plus être modifié');
+    return rows[0];
+  }
+
   async function reviewPanneTicket(id, statusValue, repairId = null) {
     if (!enabled || !session || member?.role !== 'admin') throw new Error('Validation administrateur requise');
     const rows = await request(`/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}`, {
@@ -292,6 +303,26 @@ window.MoldCloud = (() => {
       })
     });
     return rows?.[0] || null;
+  }
+
+  async function updateAchatTicket(id, ticket) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
+    const first = components[0] || {};
+    const rows = await request(`/rest/v1/toolmanager_achat_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        component: first.name,
+        quantity: Number(first.qty) || 1,
+        material: first.material || null,
+        heat_treated: Boolean(first.heatTreated),
+        components,
+        description: ticket.description || null
+      })
+    });
+    if (!rows?.length) throw new Error('Ce ticket a déjà été traité ou ne peut plus être modifié');
+    return rows[0];
   }
 
   async function reviewAchatTicket(id, statusValue, purchaseId = null) {
@@ -356,10 +387,12 @@ window.MoldCloud = (() => {
     logout,
     listPanneTickets,
     createPanneTicket,
+    updatePanneTicket,
     reviewPanneTicket,
     deletePanneTicket,
     listAchatTickets,
     createAchatTicket,
+    updateAchatTicket,
     reviewAchatTicket,
     deleteAchatTicket,
     showLogin,

@@ -62,6 +62,28 @@ with check (
   )
 );
 
+drop policy if exists "requesters can update pending panne tickets" on public.toolmanager_panne_tickets;
+create policy "requesters can update pending panne tickets"
+on public.toolmanager_panne_tickets for update to authenticated
+using (
+  workspace_key = 'expedit'
+  and requester_id = (select auth.uid())
+  and status = 'pending'
+  and exists (
+    select 1 from public.toolmanager_members member
+    where member.user_id = (select auth.uid()) and member.active = true
+  )
+)
+with check (
+  workspace_key = 'expedit'
+  and requester_id = (select auth.uid())
+  and status = 'pending'
+  and exists (
+    select 1 from public.toolmanager_members member
+    where member.user_id = (select auth.uid()) and member.active = true
+  )
+);
+
 drop policy if exists "admins can delete panne tickets" on public.toolmanager_panne_tickets;
 create policy "admins can delete panne tickets"
 on public.toolmanager_panne_tickets for delete to authenticated
