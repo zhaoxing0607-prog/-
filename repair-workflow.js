@@ -19,8 +19,9 @@
     return `<section class="card workflow-card repair-workflow-card"><div class="card-head"><div><span class="section-kicker">Processus de réparation</span><h3>Avancement de l’intervention</h3></div>${stageControl}</div><div class="workflow repair-workflow">${repairWorkflowStatuses.map((status, index) => {
       const completed = index < current || current === repairWorkflowStatuses.length - 1;
       const state = completed ? 'done' : index === current ? 'active' : '';
-      const actor = repair.stageActors[status];
-      const actorLabel = `Acteur : ${actor || 'À définir'}`;
+      const actorValue = repair.stageActors[status];
+      const actors = (Array.isArray(actorValue) ? actorValue : actorValue ? [actorValue] : []).filter(Boolean);
+      const actorLabel = `Acteur : ${actors.length ? actors.join(' · ') : 'À définir'}`;
       const actorControl = canEdit() ? `<button type="button" class="repair-stage-actor" data-repair-stage-actor="${status}" data-repair-id="${repair.id}" title="Double-cliquez pour définir l’acteur">${actorLabel}</button>` : `<small class="repair-stage-actor">${actorLabel}</small>`;
       return `<div class="workflow-step ${state}"><span class="step-marker">${completed ? '✓' : index + 1}</span><div class="step-body"><h4>${status}</h4><span>${descriptions[index]}</span>${actorControl}</div></div>`;
     }).join('')}</div></section>`;
@@ -58,14 +59,15 @@
     const repair = data.repairs.find(item => item.id === repairId);
     if (!repair || !repairWorkflowStatuses.includes(stage) || !canEdit()) return;
     ensureRepairTracking(repair);
-    const selectedActor = repair.stageActors[stage] || '';
-    const actors = selectedActor && !requesterNames.includes(selectedActor) ? [...requesterNames, selectedActor] : requesterNames;
-    $('#modalTitle').textContent = `Acteur · ${stage}`;
+    const actorValue = repair.stageActors[stage];
+    const selectedActors = (Array.isArray(actorValue) ? actorValue : actorValue ? [actorValue] : []).filter(Boolean);
+    const actors = [...new Set([...requesterNames, ...selectedActors])];
+    $('#modalTitle').textContent = `Acteurs · ${stage}`;
     $('#modalEyebrow').textContent = 'RESPONSABLE DE L’ÉTAPE';
     $('#entityForm').dataset.type = 'repairStageActor';
     $('#entityForm').dataset.editId = repair.id;
     $('#entityForm').dataset.stage = stage;
-    $('#formFields').innerHTML = `<div class="field full"><label>Acteur</label><select name="actor"><option value="">À définir</option>${actors.map(actor => `<option ${actor === selectedActor ? 'selected' : ''}>${actor}</option>`).join('')}</select></div>`;
+    $('#formFields').innerHTML = `<div class="field full"><label>Acteurs</label><select name="actor" multiple size="${Math.min(8, actors.length + 1)}"><option value="__none__" ${selectedActors.length ? '' : 'selected'}>— À définir —</option>${actors.map(actor => `<option value="${actor}" ${selectedActors.includes(actor) ? 'selected' : ''}>${actor}</option>`).join('')}</select><div class="multi-actions"><small class="multi-help">Sélection multiple · Ctrl / Cmd + clic</small><button type="button" data-clear-multi="actor">Aucun acteur</button></div></div>`;
     $('#modalBackdrop .modal').scrollTop = 0;
     $('#modalBackdrop').classList.add('open');
   }
@@ -84,6 +86,13 @@
     save();
     render();
     toast(`Étape actuelle : ${stage.value}`);
+  });
+
+  $('#entityForm').addEventListener('change', event => {
+    if (!event.target.matches('select[multiple][name="actor"]')) return;
+    const none = [...event.target.options].find(option => option.value === '__none__');
+    const selected = [...event.target.selectedOptions].filter(option => option.value !== '__none__');
+    if (none) none.selected = selected.length === 0;
   });
 
   content.addEventListener('click', event => {
@@ -117,7 +126,7 @@
       const stage = event.target.dataset.stage;
       if (!repair || !repairWorkflowStatuses.includes(stage)) return;
       ensureRepairTracking(repair);
-      repair.stageActors[stage] = new FormData(event.target).get('actor') || '';
+      repair.stageActors[stage] = new FormData(event.target).getAll('actor').filter(actor => actor && actor !== '__none__');
       save();
       closeModal();
       render();
