@@ -243,11 +243,19 @@ window.MoldCloud = (() => {
 
   async function updatePanneTicket(id, { mouldId, component, description }) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
-    const rows = await request(`/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
+    const path = `/rest/v1/toolmanager_panne_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`;
+    const submit = body => request(path, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ mould_id: mouldId, component, description })
+      body: JSON.stringify(body)
     });
+    let rows;
+    try {
+      rows = await submit({ mould_id: mouldId, component, description });
+    } catch (ticketError) {
+      if (!/component.*schema cache/i.test(ticketError.message || '')) throw ticketError;
+      rows = await submit({ mould_id: mouldId, description: `[Composant : ${component}]\n${description}` });
+    }
     if (!rows?.length) throw new Error('Ce ticket a déjà été traité ou ne peut plus être modifié');
     return rows[0];
   }
