@@ -7,6 +7,11 @@
     if (!repairWorkflowStatuses.includes(repair.workflowStatus)) {
       repair.workflowStatus = repair.status === 'En réparation' ? 'Usinage' : 'En conception';
     }
+    repair.workLogs.forEach(log => {
+      if (!repairWorkflowStatuses.includes(log.status)) log.status = repair.workflowStatus;
+      if (!Object.prototype.hasOwnProperty.call(log, 'blocker')) log.blocker = log.notes || '';
+      if (!log.blockerStatus) log.blockerStatus = log.blocker ? 'En attente de résolution' : 'Résolu';
+    });
   }
 
   data.repairs.forEach(ensureRepairTracking);
@@ -29,7 +34,7 @@
 
   function repairJournalSection(repair) {
     const logs = repair.workLogs.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    return `<section class="card project-log-card repair-log-card"><div class="card-head"><div><span class="section-kicker">Suivi quotidien</span><h3>Journal de réparation</h3><span class="sub">Travaux réalisés et remarques · indépendant de l’avancement</span></div>${canEdit() ? `<button class="primary" data-repair-log="${repair.id}">＋ Ajouter une entrée</button>` : ''}</div><div class="log-list">${logs.length ? logs.map(log => `<article class="log-entry repair-log-entry"><div class="log-date"><b>${log.date}</b>${canEdit() ? `<div class="log-actions repair-log-actions"><button type="button" class="repair-log-edit" data-edit-repair-log="${log.id}" data-repair-id="${repair.id}" title="Modifier cette entrée">✎ Modifier l’entrée</button><button type="button" class="repair-log-delete" data-delete-repair-log="${log.id}" data-repair-id="${repair.id}">Supprimer</button></div>` : ''}</div><div><span>Travail réalisé</span><p>${log.work || '—'}</p></div><div class="repair-log-notes"><span>Remarques</span><p>${log.notes || 'Aucune remarque'}</p></div></article>`).join('') : '<div class="empty">Aucune entrée dans le journal de réparation.</div>'}</div></section>`;
+    return `<section class="card project-log-card repair-log-card"><div class="card-head"><div><span class="section-kicker">Suivi quotidien</span><h3>Journal de réparation</h3><span class="sub">Avancement, travail réalisé et points bloquants</span></div>${canEdit() ? `<button class="primary" data-repair-log="${repair.id}">＋ Ajouter le journal du jour</button>` : ''}</div><div class="log-list">${logs.length ? logs.map(log => { const resolved = log.blockerStatus === 'Résolu'; return `<article class="log-entry repair-log-entry"><div class="log-date"><b>${log.date}</b>${badge(log.status)}${canEdit() ? `<div class="log-actions repair-log-actions"><button type="button" class="repair-log-edit" data-edit-repair-log="${log.id}" data-repair-id="${repair.id}" title="Modifier cette entrée">Modifier</button><button type="button" class="repair-log-delete" data-delete-repair-log="${log.id}" data-repair-id="${repair.id}">Supprimer</button></div>` : ''}</div><div><span>Travail réalisé</span><p>${log.work || '—'}</p></div><div class="log-blocker ${log.blocker ? (resolved ? 'resolved' : 'active') : ''}"><span>Point bloquant · ${resolved ? 'Résolu' : 'En attente de résolution'}</span><p>${log.blocker || 'Aucun blocage'}</p></div></article>`; }).join('') : '<div class="empty">Aucun journal de travail pour cette réparation.</div>'}</div></section>`;
   }
 
   const baseRepairDashboard = repairDashboard;
@@ -50,7 +55,7 @@
     $('#entityForm').dataset.type = 'repairLog';
     $('#entityForm').dataset.editId = repair.id;
     $('#entityForm').dataset.logId = log?.id || '';
-    $('#formFields').innerHTML = `<div class="field"><label>Date</label><input name="date" type="date" value="${log?.date || new Date().toISOString().slice(0, 10)}" required></div><div class="field full"><label>Travail réalisé</label><textarea name="work" placeholder="Décrivez les opérations, contrôles et résultats..." required>${log?.work || ''}</textarea></div><div class="field full"><label>Remarques</label><textarea name="notes" placeholder="Informations complémentaires, problème rencontré ou prochaine action...">${log?.notes || ''}</textarea></div>`;
+    $('#formFields').innerHTML = `<div class="field"><label>Date</label><input name="date" type="date" value="${log?.date || new Date().toISOString().slice(0, 10)}" required></div><div class="field"><label>Étape actuelle</label><select name="status" required>${repairWorkflowStatuses.map(status => `<option ${status === (log?.status || repair.workflowStatus) ? 'selected' : ''}>${status}</option>`).join('')}</select></div><div class="field full"><label>Travail réalisé aujourd’hui</label><textarea name="work" placeholder="Décrivez les opérations effectuées, décisions et résultats..." required>${log?.work || ''}</textarea></div><div class="field"><label>Statut du point bloquant</label><select name="blockerStatus"><option ${log?.blockerStatus !== 'Résolu' ? 'selected' : ''}>En attente de résolution</option><option ${log?.blockerStatus === 'Résolu' ? 'selected' : ''}>Résolu</option></select></div><div class="field full"><label>Point bloquant / problème actuel</label><textarea name="blocker" placeholder="Indiquez ce qui bloque la réparation. Laissez vide s’il n’y a aucun blocage.">${log?.blocker || log?.notes || ''}</textarea></div>`;
     $('#modalBackdrop .modal').scrollTop = 0;
     $('#modalBackdrop').classList.add('open');
   }
@@ -149,6 +154,7 @@
       entry.id = `RLOG-${repair.id}-${Date.now()}`;
       repair.workLogs.unshift(entry);
     }
+    repair.workflowStatus = entry.status;
     save();
     closeModal();
     render();
