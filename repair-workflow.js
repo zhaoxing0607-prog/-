@@ -3,6 +3,10 @@
 
   function ensureRepairTracking(repair) {
     repair.workLogs ||= [];
+    repair.stageActors ||= {};
+    repair.workLogs.forEach(log => {
+      if (log.actor && log.status && !repair.stageActors[log.status]) repair.stageActors[log.status] = log.actor;
+    });
     if (repair.status === 'Terminé') repair.workflowStatus = 'Terminé';
     if (!repairWorkflowStatuses.includes(repair.workflowStatus)) {
       repair.workflowStatus = repair.status === 'En réparation' ? 'Usinage' : 'En conception';
@@ -18,13 +22,14 @@
     return `<section class="card workflow-card repair-workflow-card"><div class="card-head"><div><span class="section-kicker">Processus de réparation</span><h3>Avancement de l’intervention</h3></div><span class="repair-current-stage">${repair.workflowStatus}</span></div><div class="workflow repair-workflow">${repairWorkflowStatuses.map((status, index) => {
       const completed = index < current || current === repairWorkflowStatuses.length - 1;
       const state = completed ? 'done' : index === current ? 'active' : '';
-      return `<div class="workflow-step ${state}"><span class="step-marker">${completed ? '✓' : index + 1}</span><div class="step-body"><h4>${status}</h4><span>${descriptions[index]}</span></div></div>`;
+      const actor = repair.stageActors[status];
+      return `<div class="workflow-step ${state}"><span class="step-marker">${completed ? '✓' : index + 1}</span><div class="step-body"><h4>${status}</h4><span>${descriptions[index]}</span><small class="repair-stage-actor">Acteur : ${actor || 'À définir'}</small></div></div>`;
     }).join('')}</div></section>`;
   }
 
   function repairJournalSection(repair) {
     const logs = repair.workLogs.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    return `<section class="card project-log-card repair-log-card"><div class="card-head"><div><span class="section-kicker">Suivi quotidien</span><h3>Journal de réparation</h3><span class="sub">Travaux réalisés, étape actuelle et remarques</span></div>${canEdit() ? `<button class="primary" data-repair-log="${repair.id}">＋ Ajouter une entrée</button>` : ''}</div><div class="log-list">${logs.length ? logs.map(log => `<article class="log-entry repair-log-entry"><div class="log-date"><b>${log.date}</b>${badge(log.status)}${canEdit() ? `<div class="log-actions repair-log-actions"><button data-edit-repair-log="${log.id}" data-repair-id="${repair.id}">Modifier</button><button data-delete-repair-log="${log.id}" data-repair-id="${repair.id}">Supprimer</button></div>` : ''}</div><div><span>Travail réalisé</span><p>${log.work || '—'}</p></div><div class="repair-log-notes"><span>Remarques</span><p>${log.notes || 'Aucune remarque'}</p></div></article>`).join('') : '<div class="empty">Aucune entrée dans le journal de réparation.</div>'}</div></section>`;
+    return `<section class="card project-log-card repair-log-card"><div class="card-head"><div><span class="section-kicker">Suivi quotidien</span><h3>Journal de réparation</h3><span class="sub">Travaux réalisés, étape actuelle et remarques</span></div>${canEdit() ? `<button class="primary" data-repair-log="${repair.id}">＋ Ajouter une entrée</button>` : ''}</div><div class="log-list">${logs.length ? logs.map(log => `<article class="log-entry repair-log-entry"><div class="log-date"><b>${log.date}</b>${badge(log.status)}<span class="repair-log-actor">Acteur : ${log.actor || 'À définir'}</span>${canEdit() ? `<div class="log-actions repair-log-actions"><button data-edit-repair-log="${log.id}" data-repair-id="${repair.id}">Modifier</button><button data-delete-repair-log="${log.id}" data-repair-id="${repair.id}">Supprimer</button></div>` : ''}</div><div><span>Travail réalisé</span><p>${log.work || '—'}</p></div><div class="repair-log-notes"><span>Remarques</span><p>${log.notes || 'Aucune remarque'}</p></div></article>`).join('') : '<div class="empty">Aucune entrée dans le journal de réparation.</div>'}</div></section>`;
   }
 
   const baseRepairDashboard = repairDashboard;
@@ -45,7 +50,9 @@
     $('#entityForm').dataset.type = 'repairLog';
     $('#entityForm').dataset.editId = repair.id;
     $('#entityForm').dataset.logId = log?.id || '';
-    $('#formFields').innerHTML = `<div class="field"><label>Date</label><input name="date" type="date" value="${log?.date || new Date().toISOString().slice(0, 10)}" required></div><div class="field"><label>Étape de la réparation</label><select name="status" required>${repairWorkflowStatuses.map(status => `<option ${status === (log?.status || repair.workflowStatus) ? 'selected' : ''}>${status}</option>`).join('')}</select></div><div class="field full"><label>Travail réalisé</label><textarea name="work" placeholder="Décrivez les opérations, contrôles et résultats..." required>${log?.work || ''}</textarea></div><div class="field full"><label>Remarques</label><textarea name="notes" placeholder="Informations complémentaires, problème rencontré ou prochaine action...">${log?.notes || ''}</textarea></div>`;
+    const selectedActor = log?.actor || repair.stageActors[log?.status || repair.workflowStatus] || (requesterNames.includes(currentMemberName) ? currentMemberName : 'XING ZHAO');
+    const actors = requesterNames.includes(selectedActor) ? requesterNames : [...requesterNames, selectedActor];
+    $('#formFields').innerHTML = `<div class="field"><label>Date</label><input name="date" type="date" value="${log?.date || new Date().toISOString().slice(0, 10)}" required></div><div class="field"><label>Étape de la réparation</label><select name="status" required>${repairWorkflowStatuses.map(status => `<option ${status === (log?.status || repair.workflowStatus) ? 'selected' : ''}>${status}</option>`).join('')}</select></div><div class="field"><label>Acteur</label><select name="actor" required>${actors.map(actor => `<option ${actor === selectedActor ? 'selected' : ''}>${actor}</option>`).join('')}</select></div><div class="field full"><label>Travail réalisé</label><textarea name="work" placeholder="Décrivez les opérations, contrôles et résultats..." required>${log?.work || ''}</textarea></div><div class="field full"><label>Remarques</label><textarea name="notes" placeholder="Informations complémentaires, problème rencontré ou prochaine action...">${log?.notes || ''}</textarea></div>`;
     $('#modalBackdrop .modal').scrollTop = 0;
     $('#modalBackdrop').classList.add('open');
   }
@@ -90,6 +97,7 @@
       repair.workLogs.unshift(entry);
     }
     repair.workflowStatus = entry.status;
+    repair.stageActors[entry.status] = entry.actor;
     if (entry.status === 'Terminé') {
       repair.status = 'Terminé';
       const mould = data.moulds.find(item => item.id === mouldReference(repair.mould).id);
