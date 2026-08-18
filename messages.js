@@ -2,6 +2,7 @@
   let members = [];
   let messages = [];
   let mailboxError = '';
+  let mailboxActive = false;
   const escape = value => String(value || '').replace(/[&<>'"]/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[char]));
   const me = () => window.MoldCloud?.getUserId();
   const date = value => value ? new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)) : '';
@@ -18,9 +19,8 @@
     return `<section class="mailbox-layout"><section class="card mailbox-compose"><div class="card-head"><div><span class="section-kicker">NOUVEAU MESSAGE</span><h3>Envoyer une note privée</h3></div><span class="mail-unread-count">${unread} non lu${unread>1?'s':''}</span></div><form id="messageForm"><div class="field"><label>Destinataire</label><select name="recipient" required><option value="">Sélectionner un collègue</option>${recipientOptions}</select></div><div class="field"><label>Message</label><textarea name="body" required maxlength="2000" placeholder="Écrivez votre message…"></textarea></div><div class="message-error" id="messageError">${escape(mailboxError)}</div><button class="primary" type="submit">Envoyer le message</button></form></section><section class="card mailbox-inbox"><div class="card-head"><div><span class="section-kicker">BOÎTE DE RÉCEPTION</span><h3>Mes messages</h3></div><button class="link-btn" data-refresh-messages>Actualiser</button></div><div class="message-list">${rows || '<div class="empty">Aucun message pour le moment.</div>'}</div></section></section>`;
   };
 
-  const baseRender = render;
-  render = () => {
-    if (view !== 'messages') return baseRender();
+  function showMailbox() {
+    mailboxActive = true;
     $('#pageTitle').textContent = 'Messagerie';
     $('#pageDesc').textContent = 'Échangez en privé avec les collaborateurs';
     $('#mainAddBtn').hidden = true;
@@ -28,7 +28,20 @@
     document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.view === 'messages'));
     applyRoleUi();
     $('#mainAddBtn').hidden = true;
-  };
+  }
+
+  document.querySelector('#nav').addEventListener('click', event => {
+    const item = event.target.closest('[data-view]');
+    if (!item) return;
+    if (item.dataset.view !== 'messages') {
+      mailboxActive = false;
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showMailbox();
+    refreshMailbox();
+  }, true);
 
   async function refreshMailbox() {
     if (!window.MoldCloud?.getUserId()) return;
@@ -40,7 +53,7 @@
     } catch (error) {
       mailboxError = error.message || 'Impossible de charger la messagerie.';
     }
-    if (view === 'messages') render();
+    if (mailboxActive) showMailbox();
   }
 
   content.addEventListener('click', async event => {
@@ -85,5 +98,5 @@
 
   window.addEventListener('toolmanager-role-ready', refreshMailbox);
   window.addEventListener('moldflow-cloud-ready', refreshMailbox);
-  setInterval(() => { if (view === 'messages' && !document.hidden) refreshMailbox(); }, 30000);
+  setInterval(() => { if (mailboxActive && !document.hidden) refreshMailbox(); }, 30000);
 })();
