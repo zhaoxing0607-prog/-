@@ -22,7 +22,8 @@
     let html = baseRepairDashboard();
     if (!repair) return html;
     const photos = Array.isArray(repair.photos) ? repair.photos : [];
-    const section = `<section class="card repair-photos-card"><div class="card-head"><div><span class="section-kicker">CONSTAT VISUEL</span><h3>Photos de la panne</h3></div><span class="photo-counter">${photos.length} / ${MAX_PHOTOS}</span></div>${photos.length ? `<div class="repair-photos-grid">${photos.map(photoHtml).join('')}</div>` : '<div class="empty">Aucune photo ajoutée pour cette panne.</div>'}</section>`;
+    const addButton = canEdit() && photos.length < MAX_PHOTOS ? `<button type="button" class="primary add-repair-photo" data-add-repair-photo="${repair.id}">＋ Ajouter des photos</button>` : '';
+    const section = `<section class="card repair-photos-card"><div class="card-head"><div><span class="section-kicker">CONSTAT VISUEL</span><h3>Photos de la panne</h3></div><div class="repair-photo-head-actions"><span class="photo-counter">${photos.length} / ${MAX_PHOTOS}</span>${addButton}</div></div>${photos.length ? `<div class="repair-photos-grid">${photos.map(photoHtml).join('')}</div>` : '<div class="empty">Aucune photo ajoutée pour cette panne.</div>'}</section>`;
     return html + section;
   };
 
@@ -105,6 +106,18 @@
   };
 
   document.addEventListener('click', event => {
+    const addPhoto = event.target.closest('[data-add-repair-photo]');
+    if (addPhoto) {
+      const repair = data.repairs.find(item => item.id === addPhoto.dataset.addRepairPhoto);
+      if (!repair || !canEdit()) return;
+      openModal('repairs', repair);
+      setTimeout(() => {
+        const field = document.querySelector('#repairPhotosInput');
+        field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field?.focus();
+      }, 30);
+      return;
+    }
     const open = event.target.closest('[data-open-repair-photo]');
     if (open) {
       const photo = open.closest('.repair-photo');
