@@ -394,6 +394,16 @@ window.MoldCloud = (() => {
     return rows?.[0] || null;
   }
 
+  async function deleteMessage(id) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const userId = encodeURIComponent(session.user.id);
+    await request(`/rest/v1/toolmanager_messages?id=eq.${encodeURIComponent(id)}&or=(sender_id.eq.${userId},recipient_id.eq.${userId})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    });
+    return true;
+  }
+
   // Les photos restent dans un bucket privé : elles ne sont accessibles qu'avec
   // la session de l'utilisateur connecté. L'interface les réduit avant l'envoi.
   async function uploadPannePhoto(repairId, file) {
@@ -478,6 +488,7 @@ window.MoldCloud = (() => {
     listMessages,
     sendMessage,
     markMessageRead,
+    deleteMessage,
     uploadPannePhoto,
     removePannePhoto,
     pannePhotoUrl,

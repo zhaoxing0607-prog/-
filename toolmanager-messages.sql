@@ -37,3 +37,8 @@ create policy "recipients mark messages read" on public.toolmanager_messages
 for update to authenticated
 using (recipient_id = auth.uid())
 with check (recipient_id = auth.uid());
+
+drop policy if exists "participants delete private messages" on public.toolmanager_messages;
+create policy "participants delete private messages" on public.toolmanager_messages
+for delete to authenticated
+using (sender_id = auth.uid() or recipient_id = auth.uid());
