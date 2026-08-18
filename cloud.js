@@ -357,6 +357,43 @@ window.MoldCloud = (() => {
     return true;
   }
 
+  async function listActiveMembers() {
+    if (!enabled || !session || !member) return [];
+    return request('/rest/v1/toolmanager_members?active=eq.true&select=user_id,display_name&order=display_name.asc');
+  }
+
+  async function listMessages() {
+    if (!enabled || !session || !member) return [];
+    const userId = encodeURIComponent(session.user.id);
+    return request(`/rest/v1/toolmanager_messages?or=(sender_id.eq.${userId},recipient_id.eq.${userId})&select=*&order=created_at.desc`);
+  }
+
+  async function sendMessage({ recipientId, recipientName, body }) {
+    if (!enabled || !session || !member) throw new Error('Connexion requise');
+    const rows = await request('/rest/v1/toolmanager_messages', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        sender_id: session.user.id,
+        sender_name: member.display_name || member.email || session.user.email,
+        recipient_id: recipientId,
+        recipient_name: recipientName,
+        body: String(body || '').trim()
+      })
+    });
+    return rows?.[0] || null;
+  }
+
+  async function markMessageRead(id) {
+    if (!enabled || !session || !member) return null;
+    const rows = await request(`/rest/v1/toolmanager_messages?id=eq.${encodeURIComponent(id)}&recipient_id=eq.${encodeURIComponent(session.user.id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ read_at: new Date().toISOString() })
+    });
+    return rows?.[0] || null;
+  }
+
   // Les photos restent dans un bucket privé : elles ne sont accessibles qu'avec
   // la session de l'utilisateur connecté. L'interface les réduit avant l'envoi.
   async function uploadPannePhoto(repairId, file) {
@@ -437,6 +474,10 @@ window.MoldCloud = (() => {
     updateAchatTicket,
     reviewAchatTicket,
     deleteAchatTicket,
+    listActiveMembers,
+    listMessages,
+    sendMessage,
+    markMessageRead,
     uploadPannePhoto,
     removePannePhoto,
     pannePhotoUrl,
