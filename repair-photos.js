@@ -2,7 +2,7 @@
   const MAX_PHOTOS = 2;
   const MAX_SIZE = 3 * 1024 * 1024;
   const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const photoHtml = photo => `<figure class="repair-photo" data-photo-path="${photo.path}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"><figcaption>${photo.name || 'Photo'}</figcaption></figure>`;
+  const photoHtml = photo => `<figure class="repair-photo" data-photo-path="${photo.path}"><button type="button" class="open-repair-photo" data-open-repair-photo aria-label="Agrandir la photo ${photo.name || ''}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"></button><figcaption>${photo.name || 'Photo'}</figcaption>${canEdit() ? `<button type="button" class="delete-repair-photo" data-delete-repair-photo="${photo.path}">Supprimer la photo</button>` : ''}</figure>`;
 
   async function hydratePhotos(root = document) {
     const images = [...root.querySelectorAll('[data-panne-photo]')];
@@ -31,6 +31,14 @@
     baseRender();
     hydratePhotos();
   };
+
+  document.body.insertAdjacentHTML('beforeend', '<div class="photo-viewer" id="repairPhotoViewer" aria-hidden="true"><div class="photo-viewer-panel"><button type="button" class="photo-viewer-close" data-close-photo-viewer aria-label="Fermer">×</button><img id="repairPhotoViewerImage" alt="Photo de la panne agrandie"><p id="repairPhotoViewerName"></p></div></div>');
+
+  function closeViewer() {
+    const viewer = document.querySelector('#repairPhotoViewer');
+    viewer.classList.remove('open');
+    viewer.setAttribute('aria-hidden', 'true');
+  }
 
   function editorHtml(photos) {
     const existing = photos.map(photo => `<figure class="repair-photo repair-photo-edit" data-photo-path="${photo.path}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"><figcaption>${photo.name || 'Photo'}</figcaption><button type="button" class="remove-repair-photo" data-remove-photo="${photo.path}">Retirer</button></figure>`).join('');
@@ -81,6 +89,39 @@
   };
 
   document.addEventListener('click', event => {
+    const open = event.target.closest('[data-open-repair-photo]');
+    if (open) {
+      const photo = open.closest('.repair-photo');
+      const image = photo.querySelector('img');
+      const viewer = document.querySelector('#repairPhotoViewer');
+      document.querySelector('#repairPhotoViewerImage').src = image.src;
+      document.querySelector('#repairPhotoViewerImage').alt = image.alt;
+      document.querySelector('#repairPhotoViewerName').textContent = photo.querySelector('figcaption')?.textContent || '';
+      viewer.classList.add('open');
+      viewer.setAttribute('aria-hidden', 'false');
+      return;
+    }
+    if (event.target.closest('[data-close-photo-viewer]') || event.target.id === 'repairPhotoViewer') {
+      closeViewer();
+      return;
+    }
+    const deletePhoto = event.target.closest('[data-delete-repair-photo]');
+    if (deletePhoto) {
+      const path = deletePhoto.dataset.deleteRepairPhoto;
+      const repair = data.repairs.find(item => item.id === selectedRepairId);
+      if (!canEdit() || !repair || !path || !confirm('Supprimer définitivement cette photo de la panne ?')) return;
+      deletePhoto.disabled = true;
+      window.MoldCloud.removePannePhoto(path).then(() => {
+        repair.photos = (repair.photos || []).filter(photo => photo.path !== path);
+        save();
+        render();
+        toast('Photo supprimée');
+      }).catch(error => {
+        deletePhoto.disabled = false;
+        toast(error.message || 'Impossible de supprimer la photo');
+      });
+      return;
+    }
     const remove = event.target.closest('[data-remove-photo]');
     if (remove) {
       const form = document.querySelector('#entityForm');
@@ -97,6 +138,10 @@
       }
       removeNew.closest('.repair-photo')?.remove();
     }
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeViewer();
   });
 
   async function compressImage(file) {
