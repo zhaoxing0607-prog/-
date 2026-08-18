@@ -40,6 +40,22 @@
     viewer.setAttribute('aria-hidden', 'true');
   }
 
+  async function openViewer(photo, sourceImage = null) {
+    const viewer = document.querySelector('#repairPhotoViewer');
+    const image = document.querySelector('#repairPhotoViewerImage');
+    image.removeAttribute('src');
+    image.alt = photo.name || 'Photo de la panne';
+    document.querySelector('#repairPhotoViewerName').textContent = photo.name || 'Chargement de la photo…';
+    viewer.classList.add('open');
+    viewer.setAttribute('aria-hidden', 'false');
+    try {
+      image.src = sourceImage?.src || await window.MoldCloud?.pannePhotoUrl(photo.path);
+      document.querySelector('#repairPhotoViewerName').textContent = photo.name || 'Photo de la panne';
+    } catch {
+      document.querySelector('#repairPhotoViewerName').textContent = 'Impossible de charger cette photo.';
+    }
+  }
+
   function editorHtml(photos) {
     const existing = photos.map(photo => `<figure class="repair-photo repair-photo-edit" data-photo-path="${photo.path}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"><figcaption>${photo.name || 'Photo'}</figcaption><button type="button" class="remove-repair-photo" data-remove-photo="${photo.path}">Retirer</button></figure>`).join('');
     return `<div class="field full repair-photo-field"><label>Photos de la panne <span class="optional-label">(maximum 2)</span></label><div class="repair-photo-editor" id="repairPhotoEditor">${existing || '<div class="photo-empty">Aucune photo. Ajoutez jusqu’à 2 photos.</div>'}</div><input type="file" name="repairPhotos" id="repairPhotosInput" accept="image/jpeg,image/png,image/webp" multiple><small>JPG, PNG ou WebP · compression automatique avant envoi · 2 photos maximum.</small><div class="ticket-form-error" id="repairPhotoError" role="alert"></div></div>`;
@@ -93,12 +109,14 @@
     if (open) {
       const photo = open.closest('.repair-photo');
       const image = photo.querySelector('img');
-      const viewer = document.querySelector('#repairPhotoViewer');
-      document.querySelector('#repairPhotoViewerImage').src = image.src;
-      document.querySelector('#repairPhotoViewerImage').alt = image.alt;
-      document.querySelector('#repairPhotoViewerName').textContent = photo.querySelector('figcaption')?.textContent || '';
-      viewer.classList.add('open');
-      viewer.setAttribute('aria-hidden', 'false');
+      openViewer({ path: photo.dataset.photoPath, name: photo.querySelector('figcaption')?.textContent || '' }, image);
+      return;
+    }
+    const openFromList = event.target.closest('[data-open-repair-photos]');
+    if (openFromList) {
+      const repair = data.repairs.find(item => item.id === openFromList.dataset.openRepairPhotos);
+      const photo = repair?.photos?.[0];
+      if (photo) openViewer(photo);
       return;
     }
     if (event.target.closest('[data-close-photo-viewer]') || event.target.id === 'repairPhotoViewer') {
