@@ -357,6 +357,40 @@ window.MoldCloud = (() => {
     return true;
   }
 
+  // Les photos restent dans un bucket privé : elles ne sont accessibles qu'avec
+  // la session de l'utilisateur connecté. L'interface les réduit avant l'envoi.
+  async function uploadPannePhoto(repairId, file) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Droits administrateur requis pour ajouter une photo');
+    if (!file) throw new Error('Aucun fichier sélectionné');
+    const safeName = String(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const objectPath = `${String(repairId).replace(/[^a-zA-Z0-9_-]/g, '_')}/${Date.now()}-${safeName}`;
+    await request(`/storage/v1/object/panne-photos/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'image/jpeg', 'x-upsert': 'false' },
+      body: file
+    });
+    return { path: objectPath, name: file.name || 'Photo', size: file.size || 0, type: file.type || 'image/jpeg' };
+  }
+
+  async function removePannePhoto(objectPath) {
+    if (!enabled || !session || member?.role !== 'admin' || !objectPath) return false;
+    await request('/storage/v1/object/panne-photos', {
+      method: 'DELETE',
+      body: JSON.stringify({ prefixes: [objectPath] })
+    });
+    return true;
+  }
+
+  async function pannePhotoUrl(objectPath) {
+    if (!enabled || !session || !objectPath) return '';
+    const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
+    const signed = await request(`/storage/v1/object/sign/panne-photos/${encodedPath}`, {
+      method: 'POST',
+      body: JSON.stringify({ expiresIn: 3600 })
+    });
+    return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -403,6 +437,9 @@ window.MoldCloud = (() => {
     updateAchatTicket,
     reviewAchatTicket,
     deleteAchatTicket,
+    uploadPannePhoto,
+    removePannePhoto,
+    pannePhotoUrl,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',
