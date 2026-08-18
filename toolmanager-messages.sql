@@ -6,11 +6,18 @@ create table if not exists public.toolmanager_messages (
   recipient_id uuid not null references auth.users(id) on delete cascade,
   recipient_name text not null,
   body text not null check (char_length(body) between 1 and 2000),
+  subject_type text check (subject_type is null or subject_type in ('project', 'repair', 'purchase')),
+  reference_id text,
+  reference_label text,
   created_at timestamptz not null default now(),
   read_at timestamptz
 );
 
 alter table public.toolmanager_messages enable row level security;
+
+alter table public.toolmanager_messages add column if not exists subject_type text;
+alter table public.toolmanager_messages add column if not exists reference_id text;
+alter table public.toolmanager_messages add column if not exists reference_label text;
 
 -- Annuaire minimal, nécessaire pour choisir un destinataire (nom et identifiant uniquement).
 drop policy if exists "members see active directory" on public.toolmanager_members;

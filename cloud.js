@@ -368,7 +368,7 @@ window.MoldCloud = (() => {
     return request(`/rest/v1/toolmanager_messages?or=(sender_id.eq.${userId},recipient_id.eq.${userId})&select=*&order=created_at.desc`);
   }
 
-  async function sendMessage({ recipientId, recipientName, body }) {
+  async function sendMessage({ recipientId, recipientName, body, subjectType = '', referenceId = '', referenceLabel = '' }) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const rows = await request('/rest/v1/toolmanager_messages', {
       method: 'POST',
@@ -378,7 +378,10 @@ window.MoldCloud = (() => {
         sender_name: member.display_name || member.email || session.user.email,
         recipient_id: recipientId,
         recipient_name: recipientName,
-        body: String(body || '').trim()
+        body: String(body || '').trim(),
+        subject_type: subjectType || null,
+        reference_id: referenceId || null,
+        reference_label: referenceLabel || null
       })
     });
     return rows?.[0] || null;
