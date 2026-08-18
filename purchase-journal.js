@@ -3,7 +3,7 @@
     purchase.workLogs ||= [];
     purchase.workLogs.forEach((log, index) => {
       if (!log.id) log.id = `ALOG-${purchase.id}-${log.date || 'ancienne'}-${index}`;
-      if (!purchaseStatuses.includes(log.status)) log.status = purchase.status || 'En consultation';
+      if (!purchaseStatuses.includes(log.status)) log.status = purchase.status || 'À commander';
       if (!Object.prototype.hasOwnProperty.call(log, 'work')) log.work = log.notes || '';
       if (!Object.prototype.hasOwnProperty.call(log, 'blocker')) log.blocker = '';
       if (!log.blockerStatus) log.blockerStatus = log.blocker ? 'En attente de résolution' : 'Résolu';
@@ -85,10 +85,10 @@
       purchase.workLogs.unshift(entry);
     }
     purchase.status = entry.status;
-    if (purchase.status === 'Terminé' && purchase.repairId) {
+    if (purchase.status === 'Reçu' && purchase.repairId) {
       const linkedPurchases = data.purchases.filter(item => item.repairId === purchase.repairId);
       const repair = data.repairs.find(item => item.id === purchase.repairId);
-      if (repair && linkedPurchases.every(item => item.status === 'Terminé')) repair.status = 'En réparation';
+      if (repair && linkedPurchases.every(item => item.status === 'Reçu')) repair.status = 'En réparation';
     }
     save();
     closeModal();
