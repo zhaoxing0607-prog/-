@@ -132,3 +132,4 @@ h1{font-family:inherit;font-size:22px;letter-spacing:-.5px}.search{width:min(280
 .purchase-status.status-delivery,.purchase-badge.status-delivery{color:#285f96;background:#e6f1fc;border-color:#b8d1e9}
 .purchase-status.status-received,.purchase-badge.status-received{color:#12603d;background:#e0f3e8;border-color:#add8bf}
 .purchase-badge{border:1px solid;padding:6px 10px}
+.mould-number-error{display:block;margin-top:6px;color:#b7352b;font-size:11px;font-weight:800}.field input.duplicate-number{border-color:#cf4437;background:#fff0ed;box-shadow:0 0 0 3px rgba(207,68,55,.12)}
