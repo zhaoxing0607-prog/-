@@ -441,6 +441,38 @@ window.MoldCloud = (() => {
     return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
   }
 
+  async function uploadPanneDocument(repairId, file) {
+    if (!enabled || !session || member?.role !== 'admin') throw new Error('Droits administrateur requis pour ajouter un document');
+    if (!file || file.type !== 'application/pdf') throw new Error('Sélectionnez un fichier PDF');
+    const safeName = String(file.name || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const objectPath = `${String(repairId).replace(/[^a-zA-Z0-9_-]/g, '_')}/${Date.now()}-${safeName}`;
+    await request(`/storage/v1/object/panne-documents/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf', 'x-upsert': 'false' },
+      body: file
+    });
+    return { path: objectPath, name: file.name || 'Document.pdf', size: file.size || 0, type: 'application/pdf' };
+  }
+
+  async function removePanneDocument(objectPath) {
+    if (!enabled || !session || member?.role !== 'admin' || !objectPath) return false;
+    await request('/storage/v1/object/panne-documents', {
+      method: 'DELETE',
+      body: JSON.stringify({ prefixes: [objectPath] })
+    });
+    return true;
+  }
+
+  async function panneDocumentUrl(objectPath) {
+    if (!enabled || !session || !objectPath) return '';
+    const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
+    const signed = await request(`/storage/v1/object/sign/panne-documents/${encodedPath}`, {
+      method: 'POST',
+      body: JSON.stringify({ expiresIn: 3600 })
+    });
+    return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -495,6 +527,9 @@ window.MoldCloud = (() => {
     uploadPannePhoto,
     removePannePhoto,
     pannePhotoUrl,
+    uploadPanneDocument,
+    removePanneDocument,
+    panneDocumentUrl,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',

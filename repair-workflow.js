@@ -66,7 +66,7 @@
     ensureRepairTracking(repair);
     const actorValue = repair.stageActors[stage];
     const selectedActors = (Array.isArray(actorValue) ? actorValue : actorValue ? [actorValue] : []).filter(Boolean);
-    const actors = [...new Set([...requesterNames, ...selectedActors])];
+    const actors = [...new Set([...repairActorNames, ...selectedActors])];
     $('#modalTitle').textContent = `Acteurs · ${stage}`;
     $('#modalEyebrow').textContent = 'RESPONSABLE DE L’ÉTAPE';
     $('#entityForm').dataset.type = 'repairStageActor';

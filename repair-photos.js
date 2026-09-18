@@ -217,6 +217,7 @@
     try {
       const values = new FormData(form);
       const obj = Object.fromEntries(values);
+      obj.owner=values.getAll('owner').filter(Boolean);
       const count = Math.max(1, Number(obj.componentCount) || 1);
       obj.components = Array.from({ length: count }, (_, index) => ({ name: values.get(`compName${index}`) || '', qty: Number(values.get(`compQty${index}`) || 1), material: values.get(`compMaterial${index}`) || 'Fer', heatTreated: values.has(`compHeat${index}`) }));
       Object.keys(obj).filter(key => /^comp(Name|Qty|Material|Heat)/.test(key)).forEach(key => delete obj[key]);
