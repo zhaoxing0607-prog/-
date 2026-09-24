@@ -292,6 +292,7 @@ window.MoldCloud = (() => {
   async function createAchatTicket(ticket) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
+    if (!components.length || components.some(component => !String(component.articleCode || '').trim())) throw new Error('Le code article est obligatoire pour chaque composant');
     const first = components[0] || {};
     const rows = await request('/rest/v1/toolmanager_achat_tickets', {
       method: 'POST',
@@ -316,6 +317,7 @@ window.MoldCloud = (() => {
   async function updateAchatTicket(id, ticket) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
+    if (!components.length || components.some(component => !String(component.articleCode || '').trim())) throw new Error('Le code article est obligatoire pour chaque composant');
     const first = components[0] || {};
     const rows = await request(`/rest/v1/toolmanager_achat_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
       method: 'PATCH',
