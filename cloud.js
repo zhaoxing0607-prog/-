@@ -292,7 +292,7 @@ window.MoldCloud = (() => {
   async function createAchatTicket(ticket) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
-    if (!components.length || components.some(component => !String(component.articleCode || '').trim())) throw new Error('Le code article est obligatoire pour chaque composant');
+    if (!components.length) throw new Error('Ajoutez au moins un composant');
     const first = components[0] || {};
     const rows = await request('/rest/v1/toolmanager_achat_tickets', {
       method: 'POST',
@@ -317,7 +317,7 @@ window.MoldCloud = (() => {
   async function updateAchatTicket(id, ticket) {
     if (!enabled || !session || !member) throw new Error('Connexion requise');
     const components = Array.isArray(ticket.components) && ticket.components.length ? ticket.components : [];
-    if (!components.length || components.some(component => !String(component.articleCode || '').trim())) throw new Error('Le code article est obligatoire pour chaque composant');
+    if (!components.length) throw new Error('Ajoutez au moins un composant');
     const first = components[0] || {};
     const rows = await request(`/rest/v1/toolmanager_achat_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
       method: 'PATCH',
@@ -475,6 +475,39 @@ window.MoldCloud = (() => {
     return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
   }
 
+  async function uploadAchatAttachment(ownerKey, file) {
+    if (!enabled || !session || !member?.active) throw new Error('Connexion requise pour ajouter un fichier');
+    if (!file) throw new Error('Aucun fichier sélectionné');
+    const safeOwner = String(ownerKey || 'achat').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeName = String(file.name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const objectPath = `${session.user.id}/${safeOwner}/${Date.now()}-${safeName}`;
+    await request(`/storage/v1/object/achat-attachments/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' },
+      body: file
+    });
+    return { path: objectPath, name: file.name || 'Fichier', size: file.size || 0, type: file.type || 'application/octet-stream' };
+  }
+
+  async function removeAchatAttachment(objectPath) {
+    if (!enabled || !session || !member?.active || !objectPath) return false;
+    await request('/storage/v1/object/achat-attachments', {
+      method: 'DELETE',
+      body: JSON.stringify({ prefixes: [objectPath] })
+    });
+    return true;
+  }
+
+  async function achatAttachmentUrl(objectPath) {
+    if (!enabled || !session || !objectPath) return '';
+    const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
+    const signed = await request(`/storage/v1/object/sign/achat-attachments/${encodedPath}`, {
+      method: 'POST',
+      body: JSON.stringify({ expiresIn: 3600 })
+    });
+    return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
+  }
+
   async function start(localData) {
     if (!enabled) {
       setStatus('Mode local · cloud non configuré');
@@ -532,6 +565,9 @@ window.MoldCloud = (() => {
     uploadPanneDocument,
     removePanneDocument,
     panneDocumentUrl,
+    uploadAchatAttachment,
+    removeAchatAttachment,
+    achatAttachmentUrl,
     showLogin,
     enabled,
     canWrite: () => !enabled || member?.role === 'admin',
