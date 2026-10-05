@@ -372,6 +372,7 @@ window.MoldCloud = (() => {
       body: JSON.stringify({
         workspace_key: workspaceKey,
         project_name: ticket.projectName,
+        project_type: ticket.projectType || 'Presse',
         customer: ticket.customer || null,
         description: ticket.description,
         priority: ticket.priority || 'Normal',
@@ -389,7 +390,7 @@ window.MoldCloud = (() => {
     const rows = await request(`/rest/v1/toolmanager_press_project_tickets?id=eq.${encodeURIComponent(id)}&requester_id=eq.${encodeURIComponent(session.user.id)}&status=eq.pending`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ project_name: ticket.projectName, customer: ticket.customer || null, description: ticket.description, priority: ticket.priority || 'Normal' })
+      body: JSON.stringify({ project_name: ticket.projectName, project_type: ticket.projectType || 'Presse', customer: ticket.customer || null, description: ticket.description, priority: ticket.priority || 'Normal' })
     });
     if (!rows?.length) throw new Error('Ce ticket a déjà été traité ou ne peut plus être modifié');
     return rows[0];
