@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b2f24" />
   <title>Expedit ToolManager · Gestion des outillages</title>
-  <link rel="stylesheet" href="styles.css?v=20261005-press-projects" />
+  <link rel="stylesheet" href="styles.css?v=20261009-project-log-pdf" />
   <script src="config.js?v=20260806-1532"></script>
 </head>
 <body>
@@ -46,7 +46,7 @@
     <section class="modal ticket-modal"><div class="modal-head"><div><span class="eyebrow" id="pressProjectTicketEyebrow">DEMANDE DE PROJET</span><h2 id="pressProjectTicketTitle">Créer un ticket projet</h2></div><button class="close-btn" id="closePressProjectTicketModal" type="button" title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="pressProjectTicketForm"><div class="form-grid"><div class="field full"><label>Nom du projet</label><input name="projectName" required maxlength="160" placeholder="Ex. Nouvel outillage ou équipement"></div><div class="field"><label>Client</label><input name="customer" maxlength="120" placeholder="Facultatif"></div><div class="field"><label>Priorité</label><select name="priority" required><option>Normal</option><option>Élevé</option><option>Urgent</option></select></div><div class="field full"><label>Description / besoin</label><textarea name="description" required maxlength="3000" placeholder="Décrivez le besoin, les travaux attendus et les contraintes…"></textarea></div><div class="field full"><label>Demandeur</label><input id="pressProjectTicketRequester" readonly></div><div class="ticket-form-error full" id="pressProjectTicketFormError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" id="cancelPressProjectTicketModal">Annuler</button><button type="submit" class="primary" id="pressProjectTicketSubmit">Envoyer la demande</button></div></form></section>
   </div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
-  <script src="cloud.js?v=20261005-press-projects"></script>
+  <script src="cloud.js?v=20261009-project-log-pdf"></script>
   <script src="nomenclature-export.js?v=20260928"></script>
   <script src="app.js?v=20261005-press-projects"></script>
   <script src="repair-list-cleanup.js?v=20260811-repair-list-no-cost"></script>
@@ -56,7 +56,7 @@
   <script src="memo-collapse.js?v=20260811-memo-collapse"></script>
   <script src="repair-photos.js?v=20261001-hardness"></script>
   <script src="repair-documents.js?v=20260918-repair-pdf"></script>
-  <script src="project-log-photos.js?v=20260915-project-log-photos"></script>
+  <script src="project-log-photos.js?v=20261009-project-log-pdf"></script>
   <script src="purchase-attachments.js?v=20261001"></script>
   <script src="press-projects.js?v=20261005-all-project-tickets"></script>
 </body>

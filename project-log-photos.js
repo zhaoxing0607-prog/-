@@ -1,7 +1,8 @@
 (() => {
-  const MAX_PHOTOS = 4;
+  const MAX_ATTACHMENTS = 4;
   const MAX_SIZE = 3 * 1024 * 1024;
-  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  const MAX_PDF_SIZE = 10 * 1024 * 1024;
+  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
   const form = document.querySelector('#entityForm');
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -11,12 +12,17 @@
     return Array.isArray(log?.photos) ? log.photos.filter(photo => photo?.path) : [];
   }
 
+  function documentsFor(log) {
+    return Array.isArray(log?.documents) ? log.documents.filter(document => document?.path) : [];
+  }
+
   function galleryHtml(log) {
     const photos = photosFor(log);
-    if (!photos.length) return '';
-    return `<div class="project-log-photos"><span>Photos · ${photos.length}</span><div class="project-log-photo-grid">${photos.map(photo =>
+    const documents = documentsFor(log);
+    if (!photos.length && !documents.length) return '';
+    return `<div class="project-log-photos"><span>Fichiers · ${photos.length + documents.length}</span>${photos.length ? `<div class="project-log-photo-grid">${photos.map(photo =>
       `<button type="button" class="project-log-photo" data-open-project-log-photo="${escapeHtml(photo.path)}" aria-label="Agrandir ${escapeHtml(photo.name || 'la photo du journal')}"><img data-project-log-photo="${escapeHtml(photo.path)}" alt="${escapeHtml(photo.name || 'Photo du journal')}"></button>`
-    ).join('')}</div></div>`;
+    ).join('')}</div>` : ''}${documents.length ? `<div class="project-log-documents">${documents.map(document => `<button type="button" class="project-log-document" data-open-project-log-document="${escapeHtml(document.path)}"><span>PDF</span><b>${escapeHtml(document.name || 'Document.pdf')}</b></button>`).join('')}</div>` : ''}</div>`;
   }
 
   const originalSection = projectLogSection;
@@ -24,7 +30,7 @@
     const html = originalSection();
     const project = data.projects.find(item => item.id === selectedProjectId);
     const logs = (project?.workLogs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    if (!logs.some(log => photosFor(log).length)) return html;
+    if (!logs.some(log => photosFor(log).length || documentsFor(log).length)) return html;
     const template = document.createElement('template');
     template.innerHTML = html;
     template.content.querySelectorAll('.log-entry').forEach((article, index) => {
@@ -62,19 +68,21 @@
     const project = data.projects.find(item => item.id === projectId);
     const log = (project?.workLogs || []).find(item => item.id === logId);
     const photos = photosFor(log);
+    const documents = documentsFor(log);
     form._projectLogRemovedPhotos = new Set();
+    form._projectLogRemovedDocuments = new Set();
     form._projectLogFiles = [];
     document.querySelector('#formFields').insertAdjacentHTML('beforeend', `
       <div class="field full project-log-photo-field">
-        <label>Photos du journal <span class="optional-label">(maximum ${MAX_PHOTOS})</span></label>
+        <label>Photos et PDF du journal <span class="optional-label">(maximum ${MAX_ATTACHMENTS})</span></label>
         <div class="project-log-photo-editor" id="projectLogPhotoEditor">${photos.map(photo => `
           <figure class="project-log-photo-preview" data-project-log-existing="${escapeHtml(photo.path)}">
             <img data-project-log-photo="${escapeHtml(photo.path)}" alt="${escapeHtml(photo.name || 'Photo du journal')}">
             <figcaption>${escapeHtml(photo.name || 'Photo')}</figcaption>
             <button type="button" data-remove-project-log-photo="${escapeHtml(photo.path)}">Retirer</button>
-          </figure>`).join('')}</div>
-        <input type="file" id="projectLogPhotoInput" accept="image/jpeg,image/png,image/webp" multiple ${window.MoldCloud?.enabled ? '' : 'disabled'}>
-        <small>JPG, PNG ou WebP · compression automatique · ${MAX_PHOTOS} photos maximum par entrée.${window.MoldCloud?.enabled ? '' : ' Connectez le stockage cloud pour ajouter des photos.'}</small>
+          </figure>`).join('')}${documents.map(document => `<figure class="project-log-photo-preview project-log-pdf-preview" data-project-log-document-existing="${escapeHtml(document.path)}"><div class="project-log-pdf-icon">PDF</div><figcaption>${escapeHtml(document.name || 'Document.pdf')}</figcaption><button type="button" data-remove-project-log-document="${escapeHtml(document.path)}">Retirer</button></figure>`).join('')}</div>
+        <input type="file" id="projectLogPhotoInput" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" multiple ${window.MoldCloud?.enabled ? '' : 'disabled'}>
+        <small>JPG, PNG, WebP ou PDF · photos compressées automatiquement · PDF maximum 10 Mo · ${MAX_ATTACHMENTS} fichiers maximum par entrée.${window.MoldCloud?.enabled ? '' : ' Connectez le stockage cloud pour ajouter des fichiers.'}</small>
         <div class="ticket-form-error" id="projectLogPhotoError" role="alert"></div>
       </div>`);
     hydrate(form);
@@ -84,24 +92,30 @@
       input.value = '';
       const error = document.querySelector('#projectLogPhotoError');
       error.classList.remove('visible');
-      if (incoming.some(file => !allowedTypes.has(file.type))) {
-        showError('Utilisez uniquement des images JPG, PNG ou WebP.');
+      if (incoming.some(file => !allowedTypes.has(file.type) && !/\.pdf$/i.test(file.name))) {
+        showError('Utilisez uniquement des images JPG, PNG, WebP ou des fichiers PDF.');
         return;
       }
-      const retained = photos.filter(photo => !form._projectLogRemovedPhotos.has(photo.path)).length;
-      if (retained + form._projectLogFiles.length + incoming.length > MAX_PHOTOS) {
-        showError(`Ce journal peut contenir au maximum ${MAX_PHOTOS} photos.`);
+      if (incoming.some(file => (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) && file.size > MAX_PDF_SIZE)) {
+        showError('Le PDF dépasse la limite de 10 Mo.');
+        return;
+      }
+      const retained = photos.filter(photo => !form._projectLogRemovedPhotos.has(photo.path)).length + documents.filter(document => !form._projectLogRemovedDocuments.has(document.path)).length;
+      if (retained + form._projectLogFiles.length + incoming.length > MAX_ATTACHMENTS) {
+        showError(`Ce journal peut contenir au maximum ${MAX_ATTACHMENTS} fichiers.`);
         return;
       }
       const editor = document.querySelector('#projectLogPhotoEditor');
       incoming.forEach(file => {
         const key = crypto.randomUUID();
-        const url = URL.createObjectURL(file);
+        const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+        const url = pdf ? '' : URL.createObjectURL(file);
         form._projectLogFiles.push({ key, file, url });
         const figure = document.createElement('figure');
         figure.className = 'project-log-photo-preview';
         figure.dataset.projectLogPending = key;
-        figure.innerHTML = `<img src="${url}" alt="${escapeHtml(file.name)}"><figcaption>${escapeHtml(file.name)}</figcaption><button type="button" data-remove-project-log-pending="${key}">Retirer</button>`;
+        if (pdf) figure.classList.add('project-log-pdf-preview');
+        figure.innerHTML = `${pdf ? '<div class="project-log-pdf-icon">PDF</div>' : `<img src="${url}" alt="${escapeHtml(file.name)}">`}<figcaption>${escapeHtml(file.name)}</figcaption><button type="button" data-remove-project-log-pending="${key}">Retirer</button>`;
         editor.appendChild(figure);
       });
     });
@@ -138,6 +152,10 @@
     await Promise.allSettled(photos.map(photo => window.MoldCloud?.removePannePhoto(photo.path)));
   }
 
+  async function removeDocuments(documents) {
+    await Promise.allSettled(documents.map(document => window.MoldCloud?.removePanneDocument(document.path)));
+  }
+
   document.addEventListener('submit', async event => {
     if (event.target !== form || form.dataset.type !== 'projectLog') return;
     event.preventDefault();
@@ -147,25 +165,33 @@
     const logId = form.dataset.logId;
     const existing = (project?.workLogs || []).find(item => item.id === logId);
     const removed = form._projectLogRemovedPhotos || new Set();
+    const removedDocuments = form._projectLogRemovedDocuments || new Set();
     const retained = photosFor(existing).filter(photo => !removed.has(photo.path));
+    const retainedDocuments = documentsFor(existing).filter(document => !removedDocuments.has(document.path));
     const selected = form._projectLogFiles || [];
     if (!project || (logId && !existing)) return showError('Journal introuvable. Rechargez la page.');
-    if (retained.length + selected.length > MAX_PHOTOS) return showError(`Maximum ${MAX_PHOTOS} photos par entrée.`);
+    if (retained.length + retainedDocuments.length + selected.length > MAX_ATTACHMENTS) return showError(`Maximum ${MAX_ATTACHMENTS} fichiers par entrée.`);
     const submit = form.querySelector('[type="submit"]');
     const originalLabel = submit.textContent;
     submit.disabled = true;
-    submit.textContent = selected.length ? 'Compression et envoi…' : 'Enregistrement…';
+    submit.textContent = selected.length ? 'Préparation et envoi…' : 'Enregistrement…';
     const uploaded = [];
+    const uploadedDocuments = [];
     try {
       const entry = Object.fromEntries(new FormData(form));
       entry.id = logId || `LOG-${project.id}-${Date.now()}`;
       for (const selection of selected) {
-        const file = await compress(selection.file);
-        const photo = await window.MoldCloud.uploadPannePhoto(`journal-${project.id}-${entry.id}`, file);
-        photo.name = selection.file.name;
-        uploaded.push(photo);
+        if (selection.file.type === 'application/pdf' || /\.pdf$/i.test(selection.file.name)) {
+          uploadedDocuments.push(await window.MoldCloud.uploadPanneDocument(`journal-${project.id}-${entry.id}`, selection.file));
+        } else {
+          const file = await compress(selection.file);
+          const photo = await window.MoldCloud.uploadPannePhoto(`journal-${project.id}-${entry.id}`, file);
+          photo.name = selection.file.name;
+          uploaded.push(photo);
+        }
       }
       entry.photos = [...retained, ...uploaded];
+      entry.documents = [...retainedDocuments, ...uploadedDocuments];
       if (logId) {
         const index = project.workLogs.findIndex(item => item.id === logId);
         project.workLogs[index] = { ...project.workLogs[index], ...entry };
@@ -179,9 +205,11 @@
       render();
       toast(logId ? 'Journal modifié' : 'Journal de travail ajouté');
       await removePhotos(photosFor(existing).filter(photo => removed.has(photo.path)));
+      await removeDocuments(documentsFor(existing).filter(document => removedDocuments.has(document.path)));
     } catch (error) {
       await removePhotos(uploaded);
-      showError(error.message || 'Impossible d’enregistrer les photos.');
+      await removeDocuments(uploadedDocuments);
+      showError(error.message || 'Impossible d’enregistrer les fichiers.');
     } finally {
       submit.disabled = false;
       submit.textContent = originalLabel;
@@ -201,6 +229,23 @@
       const index = form._projectLogFiles?.findIndex(item => item.key === key) ?? -1;
       if (index >= 0) URL.revokeObjectURL(form._projectLogFiles.splice(index, 1)[0].url);
       pending.closest('.project-log-photo-preview')?.remove();
+      return;
+    }
+    const removeDocument = event.target.closest('[data-remove-project-log-document]');
+    if (removeDocument) {
+      form._projectLogRemovedDocuments?.add(removeDocument.dataset.removeProjectLogDocument);
+      removeDocument.closest('.project-log-photo-preview')?.remove();
+      return;
+    }
+    const openDocument = event.target.closest('[data-open-project-log-document]');
+    if (openDocument) {
+      const popup = window.open('about:blank', '_blank');
+      if (popup) popup.opener = null;
+      openDocument.disabled = true;
+      window.MoldCloud.panneDocumentUrl(openDocument.dataset.openProjectLogDocument).then(url => {
+        if (!url) throw new Error('Document introuvable');
+        if (popup) popup.location.replace(url); else window.location.href = url;
+      }).catch(error => { popup?.close(); toast(error.message || 'Impossible d’ouvrir le PDF'); }).finally(() => { openDocument.disabled = false; });
       return;
     }
     const open = event.target.closest('[data-open-project-log-photo]');
@@ -241,7 +286,7 @@
     if (!button) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (!canEdit() || !confirm('Supprimer ce journal de travail et ses photos ?')) return;
+    if (!canEdit() || !confirm('Supprimer ce journal de travail et ses fichiers ?')) return;
     const project = data.projects.find(item => item.id === button.dataset.logProjectId);
     const log = (project?.workLogs || []).find(item => item.id === button.dataset.deleteLog);
     if (!project || !log) return;
@@ -250,5 +295,6 @@
     render();
     toast('Journal supprimé');
     removePhotos(photosFor(log));
+    removeDocuments(documentsFor(log));
   }, true);
 })();

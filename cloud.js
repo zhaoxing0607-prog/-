@@ -498,7 +498,7 @@ window.MoldCloud = (() => {
 
   async function uploadPanneDocument(repairId, file) {
     if (!enabled || !session || member?.role !== 'admin') throw new Error('Droits administrateur requis pour ajouter un document');
-    if (!file || file.type !== 'application/pdf') throw new Error('Sélectionnez un fichier PDF');
+    if (!file || (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || ''))) throw new Error('Sélectionnez un fichier PDF');
     const safeName = String(file.name || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${String(repairId).replace(/[^a-zA-Z0-9_-]/g, '_')}/${Date.now()}-${safeName}`;
     await request(`/storage/v1/object/panne-documents/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
