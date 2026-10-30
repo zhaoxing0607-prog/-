@@ -57,7 +57,7 @@
     if (record || projectPage !== 'presse') return;
     const numberField = form.ownerDocument.querySelector('#entityForm').elements.namedItem('id');
     if (typeField) typeField.value = 'Presse';
-    if (numberField) { numberField.value = nextProjectId(); numberField.readOnly = true; numberField.title = 'Numéro attribué automatiquement'; }
+    if (numberField) { numberField.value = nextProjectId(); numberField.readOnly = false; numberField.title = 'Numéro proposé automatiquement, modifiable avant enregistrement'; }
     document.querySelector('#modalTitle').textContent = 'Nouvel autre projet';
   };
 
