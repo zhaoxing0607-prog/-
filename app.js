@@ -30,7 +30,7 @@ const projectStatuses=['Amont','Conception','Mise en plan','Usinage','Mise au pl
 const sertissageProjectStatuses=['En conception','Affectation aux fournisseurs','Validé'];
 const materials=['Acier','Laiton','Inox 304','Inox 316L','Aluminium','Plastique'];
 const legacyInoxMaterials=['Acier inoxydable','INOX','Inox'];
-const partFamilies=['CULOT ANNEAU EXPEDIT','CULOT TUNNEL','KDR ASTOR','OEILLET OVAL','OEILLET 0 DENTS','CLOUS TAPISSIER'];
+const partFamilies=['CULOT ANNEAU EXPEDIT','CULOT TUNNEL','KDR ASTOR','OEILLET OVAL','OEILLET À DENT','CLOUS TAPISSIER'];
 const partFamily=p=>Object.prototype.hasOwnProperty.call(p,'family')?p.family:(/CUL[OU]T|ANNEAU|EXPEDIT/i.test(p.name||'')?'CULOT ANNEAU EXPEDIT':/KDR|ASTOR/i.test(p.name||'')?'KDR ASTOR':'');
 const mouldStatuses=['En construction','Dispo','Panne'];
 const sertissageMouldStatuses=['Conception','Affectation fournisseur','Validé'];
