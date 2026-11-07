@@ -131,7 +131,7 @@
     return segments;
   }
 
-  const cutPlanHtml = (segments, calculations) => segments.length ? `<div class="material-cut-plan">${segments.map((segment,index) => { const cuts = Object.entries(segment.counts).map(([itemIndex,count]) => { const calc = calculations[number(itemIndex)]; return `${count} × ${dimensionLabel(calc.width)} (${safe(calc.part?.name || calc.part?.id || 'Pièce')})`; }).join(' + '); const leftoverWidth = `${number(segment.leftoverWidth).toLocaleString('fr-FR', {maximumFractionDigits:3})} mm`; return `<span><b>Découpe ${index + 1}</b>${cuts}<small>Reste ${leftoverWidth} · ${weightLabel(segment.leftoverWeight)}</small></span>`; }).join('')}</div>` : '';
+  const cutPlanHtml = (segments, calculations) => segments.length ? `<div class="material-cut-plan">${segments.map((segment,index) => { const cuts = Object.entries(segment.counts).map(([itemIndex,count]) => { const calc = calculations[number(itemIndex)]; return `${count} × ${dimensionLabel(calc.width)} (${safe(calc.part?.name || calc.part?.id || 'Pièce')})`; }).join(' + '); const leftoverWidth = `${number(segment.leftoverWidth).toLocaleString('fr-FR', {maximumFractionDigits:3})} mm`; return `<span><b>Découpe ${index + 1}</b>${cuts}<strong>Poids de bande utilisé : ${weightLabel(segment.sourceWeight)}</strong><small>Reste ${leftoverWidth} · ${weightLabel(segment.leftoverWeight)}</small></span>`; }).join('')}</div>` : '';
 
   function projectTotals(items, supply) {
     const calculations = items.map(item => calculateItem(item, supply));
