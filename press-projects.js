@@ -10,8 +10,9 @@
     return `P-${String(max + 1).padStart(4, '0')}`;
   };
   const projectTypes = { emboutissage: 'Emboutissage', sertissage: 'Sertissage', presse: 'Presse' };
-  const projectTypeLabels = { Emboutissage: 'emboutissage', Sertissage: 'sertissage', Presse: 'presse' };
-  const projectTabs = () => `<div class="mould-page-tabs project-page-tabs"><button class="mould-page-tab ${projectPage==='emboutissage'?'active':''}" data-project-page="emboutissage"><strong>Projets emboutissage</strong><span>Emboutissage et pièces unitaires</span></button><button class="mould-page-tab ${projectPage==='sertissage'?'active':''}" data-project-page="sertissage"><strong>Projets sertissage</strong><span>Jeux de pose sertissage</span></button><button class="mould-page-tab ${projectPage==='presse'?'active':''}" data-project-page="presse"><strong>Projets presse</strong><span>Presses et équipements de production</span></button></div>`;
+  const projectTypeLabels = { Emboutissage: 'emboutissage', Sertissage: 'sertissage', Presse: 'autre projet' };
+  const ticketTypeLabels = { Emboutissage: 'projet emboutissage', Sertissage: 'projet sertissage', Presse: 'autre projet' };
+  const projectTabs = () => `<div class="mould-page-tabs project-page-tabs"><button class="mould-page-tab ${projectPage==='emboutissage'?'active':''}" data-project-page="emboutissage"><strong>Projets emboutissage</strong><span>Emboutissage et pièces unitaires</span></button><button class="mould-page-tab ${projectPage==='sertissage'?'active':''}" data-project-page="sertissage"><strong>Projets sertissage</strong><span>Jeux de pose sertissage</span></button><button class="mould-page-tab ${projectPage==='presse'?'active':''}" data-project-page="presse"><strong>AUTRE PROJET</strong><span>Équipements et projets divers</span></button></div>`;
   const statusMarkup = ticket => {
     const status = ticket.status === 'approved' ? ['approved', 'Approuvé'] : ticket.status === 'rejected' ? ['rejected', 'Refusé'] : ['pending', 'En attente'];
     return `<span class="ticket-status-wrap"><span class="ticket-status ${status[0]}">${status[1]}</span>${canEdit()?`<button class="delete-ticket" data-delete-press-ticket="${ticket.id}">Supprimer</button>`:''}</span>`;
@@ -26,7 +27,7 @@
       const requesterCanEdit = !admin && ticket.status === 'pending' && ticket.requester_id === userId;
       return `<div class="ticket-row press-project-ticket-row"><div><b>PP-${String(ticket.id).padStart(4,'0')}</b><span>${date}</span></div><div class="ticket-description"><strong>${escapeHtml(ticket.priority || 'Normal')}</strong><b>${escapeHtml(ticket.project_name)}</b><span>${escapeHtml(ticket.customer || 'Client à définir')} · Demandé par ${escapeHtml(ticket.requester_name)}</span><p>${escapeHtml(ticket.description)}</p></div>${statusMarkup(ticket)}<div class="ticket-actions">${admin&&ticket.status==='pending'?`<button class="approve-ticket" data-approve-press-ticket="${ticket.id}">Approuver</button><button class="reject-ticket" data-reject-press-ticket="${ticket.id}">Refuser</button>`:requesterCanEdit?`<button class="edit-ticket" data-edit-press-ticket="${ticket.id}">Modifier</button>`:ticket.project_id?`<button class="relation-chip" data-project="${escapeHtml(ticket.project_id)}">${escapeHtml(ticket.project_id)}</button>`:''}</div></div>`;
     }).join('');
-    return `<section class="card panne-ticket-card press-project-ticket-card"><div class="card-head"><div><span class="section-kicker">${admin?'VALIDATION ADMINISTRATEUR':'DEMANDES DE PROJET'}</span><h3>${admin?`Tickets projet ${projectTypeLabels[type]}`:`Mes tickets projet ${projectTypeLabels[type]}`}</h3></div><button class="primary" data-new-press-ticket>＋ Nouveau ticket</button></div><div class="ticket-list">${rows||`<div class="empty">Aucun ticket projet ${projectTypeLabels[type]}.</div>`}</div></section>`;
+    return `<section class="card panne-ticket-card press-project-ticket-card"><div class="card-head"><div><span class="section-kicker">${admin?'VALIDATION ADMINISTRATEUR':'DEMANDES DE PROJET'}</span><h3>${admin?`Tickets ${ticketTypeLabels[type]}`:`Mes tickets ${ticketTypeLabels[type]}`}</h3></div><button class="primary" data-new-press-ticket>＋ Nouveau ticket</button></div><div class="ticket-list">${rows||`<div class="empty">Aucun ticket ${ticketTypeLabels[type]}.</div>`}</div></section>`;
   };
 
   const mouldTypeField = fields.projects.find(field => field[0] === 'mouldType');
@@ -49,12 +50,15 @@
   const previousOpenModal = openModal;
   openModal = (type, record = null) => {
     previousOpenModal(type, record);
-    if (type !== 'projects' || record || projectPage !== 'presse') return;
+    if (type !== 'projects') return;
     const typeField = form.ownerDocument.querySelector('#entityForm').elements.namedItem('mouldType');
+    const pressOption = [...(typeField?.options || [])].find(option => option.value === 'Presse');
+    if (pressOption) pressOption.textContent = 'Autre projet';
+    if (record || projectPage !== 'presse') return;
     const numberField = form.ownerDocument.querySelector('#entityForm').elements.namedItem('id');
     if (typeField) typeField.value = 'Presse';
     if (numberField) { numberField.value = nextProjectId(); numberField.readOnly = true; numberField.title = 'Numéro attribué automatiquement'; }
-    document.querySelector('#modalTitle').textContent = 'Nouveau projet presse';
+    document.querySelector('#modalTitle').textContent = 'Nouvel autre projet';
   };
 
   function openTicketModal(ticket = null) {
@@ -67,8 +71,8 @@
     form.elements.priority.value = ticket?.priority || 'Normal';
     form.elements.description.value = ticket?.description || '';
     document.querySelector('#pressProjectTicketRequester').value = ticket?.requester_name || currentMemberName;
-    document.querySelector('#pressProjectTicketEyebrow').textContent = ticket ? 'MODIFICATION AVANT VALIDATION' : `DEMANDE DE PROJET ${projectType.toUpperCase()}`;
-    document.querySelector('#pressProjectTicketTitle').textContent = ticket ? `Modifier le ticket projet ${projectTypeLabels[projectType]}` : `Créer un ticket projet ${projectTypeLabels[projectType]}`;
+    document.querySelector('#pressProjectTicketEyebrow').textContent = ticket ? 'MODIFICATION AVANT VALIDATION' : projectType === 'Presse' ? 'DEMANDE · AUTRE PROJET' : `DEMANDE DE PROJET ${projectType.toUpperCase()}`;
+    document.querySelector('#pressProjectTicketTitle').textContent = ticket ? `Modifier le ticket ${ticketTypeLabels[projectType]}` : `Créer un ticket ${ticketTypeLabels[projectType]}`;
     document.querySelector('#pressProjectTicketSubmit').textContent = ticket ? 'Enregistrer les modifications' : 'Envoyer la demande';
     const error = document.querySelector('#pressProjectTicketFormError');
     error.textContent = ''; error.classList.remove('visible');
@@ -85,7 +89,7 @@
   async function approveTicket(id) {
     const ticket = tickets.find(item => String(item.id) === String(id));
     const projectType = ticket?.project_type || 'Presse';
-    if (!ticket || !canEdit() || !confirm(`Approuver le ticket PP-${String(ticket.id).padStart(4,'0')} et créer le projet ${projectTypeLabels[projectType]} ?`)) return;
+    if (!ticket || !canEdit() || !confirm(`Approuver le ticket PP-${String(ticket.id).padStart(4,'0')} et créer ${projectType === 'Presse' ? 'l’autre projet' : `le projet ${projectTypeLabels[projectType]}`} ?`)) return;
     let project = data.projects.find(item => String(item.sourceProjectTicketId || item.sourcePressProjectTicketId) === String(ticket.id));
     if (!project) {
       const today = new Date().toISOString().slice(0,10);
@@ -98,12 +102,12 @@
   async function rejectTicket(id) {
     const ticket = tickets.find(item => String(item.id) === String(id));
     if (!ticket || !canEdit() || !confirm(`Refuser le ticket PP-${String(ticket.id).padStart(4,'0')} ?`)) return;
-    try { await window.MoldCloud.reviewPressProjectTicket(ticket.id, 'rejected'); await refreshTickets(); toast('Ticket projet presse refusé'); }
+    try { await window.MoldCloud.reviewPressProjectTicket(ticket.id, 'rejected'); await refreshTickets(); toast('Ticket autre projet refusé'); }
     catch (error) { toast(error.message || 'Validation impossible'); }
   }
   async function deleteTicket(id) {
-    if (!canEdit() || !confirm('Supprimer définitivement ce ticket projet presse ?')) return;
-    try { await window.MoldCloud.deletePressProjectTicket(id); await refreshTickets(); toast('Ticket projet presse supprimé'); }
+    if (!canEdit() || !confirm('Supprimer définitivement ce ticket autre projet ?')) return;
+    try { await window.MoldCloud.deletePressProjectTicket(id); await refreshTickets(); toast('Ticket autre projet supprimé'); }
     catch (error) { toast(error.message || 'Suppression impossible'); }
   }
 
@@ -120,7 +124,7 @@
     const submit = document.querySelector('#pressProjectTicketSubmit'), error = document.querySelector('#pressProjectTicketFormError'), payload = { projectName: form.elements.projectName.value.trim(), projectType: form.dataset.projectType || projectTypes[projectPage] || 'Emboutissage', customer: form.elements.customer.value.trim(), priority: form.elements.priority.value, description: form.elements.description.value.trim() }, wasEditing = Boolean(editingTicketId), label = submit.textContent;
     error.textContent = ''; error.classList.remove('visible'); submit.disabled = true; submit.textContent = wasEditing ? 'Enregistrement…' : 'Envoi en cours…';
     try { await window.MoldCloud[wasEditing?'updatePressProjectTicket':'createPressProjectTicket'](...(wasEditing?[editingTicketId,payload]:[payload])); closeTicketModal(); await refreshTickets(); toast(wasEditing?'Ticket modifié · en attente de validation':'Ticket envoyé · en attente de validation'); }
-    catch (ticketError) { error.textContent = String(ticketError.message || '').includes('toolmanager_press_project_tickets') ? 'Configuration Supabase manquante : la table des tickets projet presse doit être installée.' : `Échec de l’enregistrement : ${ticketError.message || 'Erreur inconnue'}`; error.classList.add('visible'); }
+    catch (ticketError) { error.textContent = String(ticketError.message || '').includes('toolmanager_press_project_tickets') ? 'Configuration Supabase manquante : la table des tickets autre projet doit être installée.' : `Échec de l’enregistrement : ${ticketError.message || 'Erreur inconnue'}`; error.classList.add('visible'); }
     finally { submit.disabled = false; submit.textContent = label; }
   };
   document.querySelector('#closePressProjectTicketModal').onclick = document.querySelector('#cancelPressProjectTicketModal').onclick = closeTicketModal;
