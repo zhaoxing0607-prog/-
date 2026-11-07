@@ -91,18 +91,47 @@
     if (!utilization) warnings.push('Taux d’utilisation manquant');
     if (!width) warnings.push('Largeur de bande manquante');
     if (!thickness) warnings.push('Épaisseur manquante');
-    if (!unitPrice) warnings.push('Prix par kilogramme manquant');
-    if (supplyMode === 'slit' && !sourceWidth) warnings.push('Largeur de bande mère manquante');
-    if (supplyMode === 'slit' && sourceWidth && width && sourceWidth < width) warnings.push('Bande mère plus étroite que la bande nécessaire');
     return {part, mould, quantity, unitWeight, utilization, width, thickness, finishedWeight, rawWeight, supplyMode, sourceWidth, unitPrice, rollCount, leftoverWidth, slitYield, purchaseWeight, leftoverWeight, selectedCost, warnings};
   }
 
   const itemSummary = (item, supply = currentSupply()) => {
     const calc = calculateItem(item, supply);
-    const leftoverWidthLabel = calc.rollCount ? `${calc.leftoverWidth.toLocaleString('fr-FR', {maximumFractionDigits:3})} mm` : 'À calculer';
-    const split = calc.supplyMode === 'slit' ? `<span>Découpe en : <b>${calc.rollCount || 0} bande(s)</b></span><span>Rendement refente : <b>${(calc.slitYield * 100).toLocaleString('fr-FR', {maximumFractionDigits:2})} %</b></span><span>Reste : <b>${leftoverWidthLabel} · ${weightLabel(calc.leftoverWeight)}</b></span>` : '<span>Découpe : <b>aucune</b></span><span>Reste : <b>0 g</b></span>';
-    return `<span>Poids nécessaire : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Largeur : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${split}<span>Poids à acheter : <b>${weightLabel(calc.purchaseWeight)}</b></span><span>Prix d’achat : <b>${calc.selectedCost ? costLabel(calc.selectedCost) : 'À calculer'}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
+    return `<span>Poids nécessaire : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Largeur utile : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
   };
+
+  function optimizeSharedCut(calculations, sourceWidth) {
+    const usable = calculations.map((calc, index) => ({index, width:number(calc.width), remaining:calc.width > 0 ? calc.rawWeight / calc.width : 0})).filter(item => item.width > 0 && item.remaining > 0 && item.width <= sourceWidth);
+    const segments = [];
+    const epsilon = 1e-7;
+    for (let guard = 0; guard < 500 && usable.some(item => item.remaining > epsilon); guard += 1) {
+      const active = usable.filter(item => item.remaining > epsilon);
+      const candidates = [];
+      active.forEach(item => {
+        const count = Math.floor(sourceWidth / item.width);
+        if (count > 0) candidates.push({counts:{[item.index]:count}, usedWidth:count * item.width, mixed:false});
+      });
+      for (let a = 0; a < active.length; a += 1) {
+        for (let b = a + 1; b < active.length; b += 1) {
+          const first = active[a], second = active[b], maxFirst = Math.floor(sourceWidth / first.width);
+          for (let firstCount = 1; firstCount <= maxFirst; firstCount += 1) {
+            const secondCount = Math.floor((sourceWidth - firstCount * first.width) / second.width);
+            if (secondCount > 0) candidates.push({counts:{[first.index]:firstCount,[second.index]:secondCount}, usedWidth:firstCount * first.width + secondCount * second.width, mixed:true});
+          }
+        }
+      }
+      const mixed = candidates.filter(candidate => candidate.mixed);
+      const pool = active.length > 1 && mixed.length ? mixed : candidates;
+      const pattern = pool.sort((a,b) => b.usedWidth - a.usedWidth)[0];
+      if (!pattern) break;
+      const run = Math.min(...Object.entries(pattern.counts).map(([index,count]) => usable.find(item => item.index === number(index)).remaining / count));
+      const sourceWeight = sourceWidth * run, leftoverWidth = Math.max(0, sourceWidth - pattern.usedWidth), leftoverWeight = leftoverWidth * run;
+      Object.entries(pattern.counts).forEach(([index,count]) => { const item = usable.find(entry => entry.index === number(index)); item.remaining = Math.max(0, item.remaining - run * count); });
+      segments.push({counts:pattern.counts, usedWidth:pattern.usedWidth, leftoverWidth, sourceWeight, leftoverWeight});
+    }
+    return segments;
+  }
+
+  const cutPlanHtml = (segments, calculations) => segments.length ? `<div class="material-cut-plan">${segments.map((segment,index) => { const cuts = Object.entries(segment.counts).map(([itemIndex,count]) => { const calc = calculations[number(itemIndex)]; return `${count} × ${dimensionLabel(calc.width)} (${safe(calc.part?.name || calc.part?.id || 'Pièce')})`; }).join(' + '); const leftoverWidth = `${number(segment.leftoverWidth).toLocaleString('fr-FR', {maximumFractionDigits:3})} mm`; return `<span><b>Découpe ${index + 1}</b>${cuts}<small>Reste ${leftoverWidth} · ${weightLabel(segment.leftoverWeight)}</small></span>`; }).join('')}</div>` : '';
 
   function projectTotals(items, supply) {
     const calculations = items.map(item => calculateItem(item, supply));
@@ -110,15 +139,24 @@
     const thicknesses = [...new Set(calculations.map(calc => number(calc.thickness)).filter(Boolean))];
     const widths = [...new Set(calculations.map(calc => number(calc.width)).filter(Boolean))];
     const warnings = [];
+    if (!number(supply.unitPrice)) warnings.push('Prix par kilogramme manquant');
+    if (supply.supplyMode === 'slit' && !number(supply.sourceWidth)) warnings.push('Largeur de bande mère manquante');
     if (materials.length > 1) warnings.push(`Matières incompatibles pour une bande commune : ${materials.join(' / ')}`);
     if (thicknesses.length > 1) warnings.push(`Épaisseurs incompatibles pour une bande commune : ${thicknesses.map(dimensionLabel).join(' / ')}`);
     if (supply.supplyMode !== 'slit' && widths.length > 1) warnings.push(`Largeurs incompatibles pour une bande prédécoupée commune : ${widths.map(dimensionLabel).join(' / ')}`);
+    if (supply.supplyMode === 'slit' && widths.some(width => width > number(supply.sourceWidth))) warnings.push('La bande mère est plus étroite que l’une des bandes nécessaires');
+    const canOptimize = supply.supplyMode === 'slit' && number(supply.sourceWidth) > 0 && materials.length <= 1 && thicknesses.length <= 1;
+    const segments = canOptimize ? optimizeSharedCut(calculations, number(supply.sourceWidth)) : [];
+    const requiredWeight = calculations.reduce((sum, calc) => sum + calc.rawWeight, 0);
+    const purchaseWeight = canOptimize ? segments.reduce((sum, segment) => sum + segment.sourceWeight, 0) : requiredWeight;
+    const leftoverWeight = canOptimize ? segments.reduce((sum, segment) => sum + segment.leftoverWeight, 0) : 0;
     return {
       calculations,
-      requiredWeight: calculations.reduce((sum, calc) => sum + calc.rawWeight, 0),
-      purchaseWeight: calculations.reduce((sum, calc) => sum + calc.purchaseWeight, 0),
-      leftoverWeight: calculations.reduce((sum, calc) => sum + calc.leftoverWeight, 0),
-      totalCost: calculations.reduce((sum, calc) => sum + calc.selectedCost, 0),
+      requiredWeight,
+      purchaseWeight,
+      leftoverWeight,
+      totalCost: purchaseWeight / 1000 * number(supply.unitPrice),
+      segments,
       warnings
     };
   }
@@ -150,7 +188,7 @@
   function updateLiveSummary() {
     const totals = projectTotals(currentItems(), currentSupply());
     const complete = totals.calculations.filter(item => item.rawWeight && item.width && item.thickness).length;
-    document.getElementById('materialLiveSummary').innerHTML = `<h3>Résultat de la bande commune</h3><div class="material-live-totals"><span>Poids nécessaire : <b>${weightLabel(totals.requiredWeight)}</b></span><span>Poids total à acheter : <b>${weightLabel(totals.purchaseWeight)}</b></span><span>Poids restant : <b>${weightLabel(totals.leftoverWeight)}</b></span><span>Prix total d’achat : <b>${costLabel(totals.totalCost)}</b></span><span>Pièces calculables : <b>${complete}/${totals.calculations.length}</b></span></div>${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}`;
+    document.getElementById('materialLiveSummary').innerHTML = `<h3>Résultat de la découpe commune</h3><div class="material-live-totals"><span>Poids nécessaire : <b>${weightLabel(totals.requiredWeight)}</b></span><span>Poids total à acheter : <b>${weightLabel(totals.purchaseWeight)}</b></span><span>Poids restant : <b>${weightLabel(totals.leftoverWeight)}</b></span><span>Prix total d’achat : <b>${costLabel(totals.totalCost)}</b></span><span>Pièces calculables : <b>${complete}/${totals.calculations.length}</b></span></div>${cutPlanHtml(totals.segments, totals.calculations)}${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}`;
   }
   function openCalculator(record) {
     if (!canEdit()) { toast('Mode lecture seule · modification interdite'); return; }
@@ -174,16 +212,14 @@
     const sharedSupply = supplyFromRecord(record);
     return (record.items || []).map(item => {
       const calc = calculateItem(item, sharedSupply);
-      const leftoverWidthLabel = calc.rollCount ? `${calc.leftoverWidth.toLocaleString('fr-FR', {maximumFractionDigits:3})} mm` : 'À calculer';
-      const supply = calc.supplyMode === 'slit' ? `<b>Bande mère ${dimensionLabel(calc.sourceWidth)}</b><span>Découpe en ${calc.rollCount} bande(s) · rendement ${(calc.slitYield * 100).toLocaleString('fr-FR', {maximumFractionDigits:2})} %</span><span>Reste ${leftoverWidthLabel} / ${weightLabel(calc.leftoverWeight)}</span>` : '<b>Bande prédécoupée</b><span>Aucune découpe · reste 0 g</span>';
-      return `<div class="material-result"><div><span class="material-result-label">Pièce</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong><span>À acheter ${weightLabel(calc.purchaseWeight)}</span></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Approvisionnement / découpe</span>${supply}</div><div><span class="material-result-label">Prix d’achat</span><strong>${calc.selectedCost ? costLabel(calc.selectedCost) : 'Prix manquant'}</strong><span>${calc.unitPrice ? `${costLabel(calc.unitPrice)} / kg` : ''}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
+      return `<div class="material-result"><div><span class="material-result-label">Pièce</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Utilisation de la bande commune</span><b>${dimensionLabel(calc.width)} réservés à cette pièce</b><span>${safe(calc.part?.material || 'Matière à renseigner')}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
     }).join('');
   }
   function calculatorPage() {
     ensureStore();
     const query = String(document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
     const records = data.materialCalculations.filter(record => !query || `${record.id} ${record.name}`.toLowerCase().includes(query));
-    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Calcul des besoins initiaux</h2><p>Définissez une bande initiale commune, puis ajoutez toutes les pièces produites avec cette même bande.</p></div><div class="material-formula">Poids d’achat = besoins de toutes les pièces + restes de découpe<br>Prix d’achat = poids total à acheter × prix par kg</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const supply = supplyFromRecord(record), totals = projectTotals(record.items || [], supply); return `<article class="material-project-card"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s)</small></div><div class="material-project-actions"><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-shared-result"><b>Bande commune · ${supply.supplyMode === 'slit' ? `mère ${dimensionLabel(supply.sourceWidth)}` : 'prédécoupée'}</b><span>Poids nécessaire ${weightLabel(totals.requiredWeight)}</span><span>Poids à acheter ${weightLabel(totals.purchaseWeight)}</span><span>Reste ${weightLabel(totals.leftoverWeight)}</span><span>Prix ${costLabel(totals.totalCost)}</span></div>${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Approvisionnement / découpe</span><span>Prix d’achat</span></div><div class="material-result-grid">${resultCards(record)}</div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour calculer une bande commune.</div>`}`;
+    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Calcul des besoins initiaux</h2><p>Définissez une bande initiale commune : le système combine les largeurs des différentes pièces pour proposer une découpe partagée.</p></div><div class="material-formula">Exemple : bande 50 mm = 15 mm ENT + 21 mm ASTOR + 14 mm restant<br>Prix d’achat = poids total de la bande mère × prix par kg</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const supply = supplyFromRecord(record), totals = projectTotals(record.items || [], supply); return `<article class="material-project-card"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s)</small></div><div class="material-project-actions"><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-shared-result"><b>Bande commune · ${supply.supplyMode === 'slit' ? `mère ${dimensionLabel(supply.sourceWidth)}` : 'prédécoupée'}</b><span>Poids nécessaire ${weightLabel(totals.requiredWeight)}</span><span>Poids à acheter ${weightLabel(totals.purchaseWeight)}</span><span>Reste ${weightLabel(totals.leftoverWeight)}</span><span>Prix ${costLabel(totals.totalCost)}</span></div>${cutPlanHtml(totals.segments, totals.calculations)}${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Utilisation de la bande commune</span></div><div class="material-result-grid">${resultCards(record)}</div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour calculer une découpe commune.</div>`}`;
   }
 
   const previousRender = render;
