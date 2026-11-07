@@ -17,6 +17,7 @@ const seed={
   {id:'PC-001',name:'ASTOR KDR 28',family:'KDR ASTOR',material:'Acier',thickness:0.2},
   {id:'PC-002',name:'CULOT ANNEAU 16MM',family:'CULOT ANNEAU EXPEDIT',material:'Acier',thickness:0.2}],
  notes:[],
+ materialCalculations:[],
  purchases:[
   {id:'CG-0116',part:'Insert de poinçon',drawing:'DRW-0007-03',supplier:'Précision Durand',qty:2,price:3400,status:'Consultation',eta:'2026-08-10'},
   {id:'CG-0113',part:'Tige d’éjection inclinée',drawing:'DRW-0018-12',supplier:'MecaMold',qty:4,price:300,status:'Usinage',eta:'2026-08-08'},
@@ -28,6 +29,7 @@ data.notes=data.notes||[];
 const projectStatuses=['Amont','Conception','Mise en plan','Usinage','Mise au plan et essai','Validé'];
 const sertissageProjectStatuses=['En conception','Affectation aux fournisseurs','Validé'];
 const materials=['Acier','Laiton','Inox 304','Inox 316L','Aluminium','Plastique'];
+const legacyInoxMaterials=['Acier inoxydable','INOX','Inox'];
 const partFamilies=['CULOT ANNEAU EXPEDIT','CULOT TUNNEL','KDR ASTOR','OEILLET OVAL'];
 const partFamily=p=>Object.prototype.hasOwnProperty.call(p,'family')?p.family:(/CUL[OU]T|ANNEAU|EXPEDIT/i.test(p.name||'')?'CULOT ANNEAU EXPEDIT':/KDR|ASTOR/i.test(p.name||'')?'KDR ASTOR':'');
 const mouldStatuses=['En construction','Dispo','Panne'];
@@ -48,7 +50,7 @@ function normalizeProjectStatus(project){let statuses=project.mouldType==='Serti
 const legacyStatus={Analyse:'Amont','Usinage interne':'Usinage','Usinage fournisseur':'Usinage','Mise au point':'Mise au plan et essai',Terminé:'Validé'};
 const normalizeMouldStatus=m=>{let sertissage=(m.mouldCategory||m.type)==='Sertissage';if(sertissage&&m.status==='Affectation aux fournisseurs')m.status='Affectation fournisseur';let statuses=sertissage?sertissageMouldStatuses:mouldStatuses;if(!statuses.includes(m.status))m.status=sertissage?(m.status==='Dispo'?'Validé':'Conception'):(m.status==='En réparation'?'Panne':m.status==='En production'?'Dispo':'En construction')};
 data.moulds.forEach(normalizeMouldStatus);data.repairs.forEach(r=>{if(!repairStatuses.includes(r.status))r.status='À traiter'});data.purchases.forEach(normalizePurchaseStatus);
-data.parts.forEach(p=>{if(p.material==='Fer'||p.material==='FER')p.material='Acier';if(!materials.includes(p.material))p.material='Acier'});data.repairs.forEach(r=>(r.components||[]).forEach(c=>{if(c.material==='Fer'||c.material==='FER')c.material='Acier'}));data.purchases.forEach(p=>(p.components||[]).forEach(c=>{if(c.material==='Fer'||c.material==='FER')c.material='Acier'}));
+data.parts.forEach(p=>{if(p.material==='Fer'||p.material==='FER')p.material='Acier';if(!materials.includes(p.material)&&!legacyInoxMaterials.includes(p.material))p.material='Acier'});data.repairs.forEach(r=>(r.components||[]).forEach(c=>{if(c.material==='Fer'||c.material==='FER')c.material='Acier'}));data.purchases.forEach(p=>(p.components||[]).forEach(c=>{if(c.material==='Fer'||c.material==='FER')c.material='Acier'}));
 data.purchases.forEach(p=>{let repair=data.repairs.find(r=>r.id===p.repairId);if(p.autoCreated&&repair?.components?.length>(p.components?.length||0)){p.components=repair.components.map(c=>({...c,price:0}));p.componentCount=p.components.length}});
 data.purchases.forEach(p=>{if(!p.mould&&p.repairId)p.mould=data.repairs.find(r=>r.id===p.repairId)?.mould||''});
 data.projects.forEach(p=>{p.linkedPartIds=p.linkedPartIds||[];p.mouldType=p.mouldType||'Emboutissage'});data.moulds.forEach(m=>{m.linkedPartIds=m.linkedPartIds||(m.linkedPart&&m.linkedPart!=='Aucune'?[String(m.linkedPart).split(' · ')[0]]:[]);m.mouldCategory=m.mouldCategory||'Emboutissage'});data.parts.forEach(p=>{p.relatedMouldIds=p.relatedMouldIds||data.moulds.filter(m=>m.linkedPartIds.includes(p.id)).map(m=>m.id)});
