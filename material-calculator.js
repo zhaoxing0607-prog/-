@@ -9,7 +9,7 @@
 
   const ensureStore = () => { data.materialCalculations = Array.isArray(data.materialCalculations) ? data.materialCalculations : []; };
   ensureStore();
-  meta[calculatorView] = ['Calcul matière initiale', 'Calculez le poids brut et les dimensions de bande nécessaires', '＋ Nouveau projet'];
+  meta[calculatorView] = ['Calcul matière initiale', 'Calculez le poids, la largeur et l’épaisseur de la bande', '＋ Nouveau projet'];
 
   const openModalBeforeLegacyInox = openModal;
   openModal = (type, record = null) => {
@@ -60,24 +60,22 @@
 
   function calculateItem(item) {
     const part = partById(item.partId), mould = mouldById(item.mouldId), quantity = Math.max(0, number(item.quantity));
-    const unitWeight = number(part?.weight), utilization = number(mould?.utilization), piecesPerStroke = Math.max(1, number(mould?.piecesPerStroke) || 1);
-    const pitch = number(mould?.rollingPitch), width = number(mould?.stripWidth), thickness = number(mould?.maxThickness) || number(part?.thickness);
+    const unitWeight = number(part?.weight), utilization = number(mould?.utilization);
+    const width = number(mould?.stripWidth), thickness = number(mould?.maxThickness) || number(part?.thickness);
     const finishedWeight = unitWeight * quantity, rawWeight = utilization > 0 ? finishedWeight / (utilization / 100) : 0;
-    const cycles = quantity > 0 ? Math.ceil(quantity / piecesPerStroke) : 0, length = cycles * pitch;
     const warnings = [];
     if (!part) warnings.push('Pièce introuvable');
     if (!mould) warnings.push('Choisir le moule associé');
     if (!unitWeight) warnings.push('Poids unitaire manquant');
     if (!utilization) warnings.push('Taux d’utilisation manquant');
-    if (!pitch) warnings.push('Pas de laminage manquant');
     if (!width) warnings.push('Largeur de bande manquante');
     if (!thickness) warnings.push('Épaisseur manquante');
-    return {part, mould, quantity, unitWeight, utilization, piecesPerStroke, pitch, width, thickness, finishedWeight, rawWeight, cycles, length, warnings};
+    return {part, mould, quantity, unitWeight, utilization, width, thickness, finishedWeight, rawWeight, warnings};
   }
 
   const itemSummary = item => {
     const calc = calculateItem(item);
-    return `<span>Poids brut : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Bande : <b>${dimensionLabel(calc.length)} × ${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</b></span><span>${calc.cycles} coup(s)</span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
+    return `<span>Poids de la bande : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Largeur : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
   };
 
   function partOptions(selected = '') {
@@ -104,7 +102,7 @@
   }
   function updateLiveSummary() {
     const calculations = currentItems().map(calculateItem), knownRaw = calculations.reduce((sum, item) => sum + item.rawWeight, 0), complete = calculations.filter(item => !item.warnings.length).length;
-    document.getElementById('materialLiveSummary').innerHTML = `<h3>Résultat instantané</h3><div class="material-live-totals"><span>Poids initial total connu : <b>${weightLabel(knownRaw)}</b></span><span>Pièces calculables : <b>${complete}/${calculations.length}</b></span><span>Formule : poids fini ÷ taux d’utilisation</span></div>`;
+    document.getElementById('materialLiveSummary').innerHTML = `<h3>Résultat instantané</h3><div class="material-live-totals"><span>Poids total de bande : <b>${weightLabel(knownRaw)}</b></span><span>Pièces calculables : <b>${complete}/${calculations.length}</b></span><span>Formule : poids fini ÷ taux d’utilisation</span></div>`;
   }
   function openCalculator(record) {
     if (!canEdit()) { toast('Mode lecture seule · modification interdite'); return; }
@@ -122,14 +120,14 @@
   function resultCards(record) {
     return (record.items || []).map(item => {
       const calc = calculateItem(item);
-      return `<div class="material-result"><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s) · ${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</span><span>Bande L × l × h : ${dimensionLabel(calc.length)} × ${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</span>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
+      return `<div class="material-result"><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b><strong>Poids bande : ${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s) · ${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</span><span>Largeur : <b>${dimensionLabel(calc.width)}</b> · Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
     }).join('');
   }
   function calculatorPage() {
     ensureStore();
     const query = String(document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
     const records = data.materialCalculations.filter(record => !query || `${record.id} ${record.name}`.toLowerCase().includes(query));
-    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Calcul des besoins initiaux</h2><p>Sélectionnez les pièces, leurs quantités et le moule associé. Le calcul reprend automatiquement les paramètres techniques du moule.</p></div><div class="material-formula">Poids brut = poids unitaire × quantité ÷ taux d’utilisation<br>Longueur = ⌈quantité ÷ pièces/coup⌉ × pas de laminage</div></section>${records.length ? `<div class="material-project-list">${records.map(record => `<article class="material-project-card"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s)</small></div><div class="material-project-actions"><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-result-grid">${resultCards(record)}</div></article>`).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour calculer le poids brut et les dimensions de bande.</div>`}`;
+    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Calcul des besoins initiaux</h2><p>Sélectionnez les pièces, leurs quantités et le moule associé. Le résultat indique le poids, la largeur et l’épaisseur de la bande.</p></div><div class="material-formula">Poids de la bande = poids unitaire × quantité ÷ taux d’utilisation<br>Largeur et épaisseur reprises depuis le moule associé</div></section>${records.length ? `<div class="material-project-list">${records.map(record => `<article class="material-project-card"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s)</small></div><div class="material-project-actions"><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-result-grid">${resultCards(record)}</div></article>`).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour calculer le poids, la largeur et l’épaisseur de la bande.</div>`}`;
   }
 
   const previousRender = render;
