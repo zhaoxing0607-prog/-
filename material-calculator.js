@@ -7,6 +7,7 @@
   const costLabel = euros => `${number(euros).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2})} €`;
   const dimensionLabel = value => number(value) ? `${number(value).toLocaleString('fr-FR', {maximumFractionDigits:3})} mm` : 'À renseigner';
   let editingId = '';
+  const expandedMaterialIds = new Set();
 
   const ensureStore = () => { data.materialCalculations = Array.isArray(data.materialCalculations) ? data.materialCalculations : []; };
   ensureStore();
@@ -36,9 +37,9 @@
         <div class="modal-head"><div><span class="eyebrow" id="materialCalculatorEyebrow">NOUVEAU</span><h2 id="materialCalculatorTitle">Nouveau projet matière</h2></div><button class="close-btn" type="button" data-close-material-calculator aria-label="Fermer">×</button></div>
         <form id="materialCalculatorForm">
           <div class="material-project-fields"><label class="field"><span>Nom du projet / calcul</span><input name="name" required maxlength="160" placeholder="Ex. Série ASTOR KDR 28"></label><label class="field"><span>Date</span><input name="created" type="date" required></label></div>
-          <div class="material-project-supply"><div class="material-shared-title"><b>Bande initiale commune</b><span>Cette même bande est utilisée pour toutes les pièces du projet.</span></div><label>Approvisionnement<select name="supplyMode"><option value="precut">Bande prédécoupée</option><option value="slit">Bande mère à découper</option></select></label><label class="project-slit-only">Largeur bande mère (mm)<input name="sourceWidth" type="number" min="0" step="any" placeholder="Ex. 1000"></label><label>Prix de la bande (€/kg)<input name="unitPrice" type="number" min="0" step="any" placeholder="Ex. 2,50"></label></div>
           <div class="material-lines" id="materialCalculatorLines"></div>
           <button class="secondary material-add-line" type="button" data-add-material-line>＋ Ajouter une pièce</button>
+          <div class="material-project-supply"><div class="material-shared-title"><b>Options d’approvisionnement</b><span>Choisissez une bande prédécoupée ou une bande mère à largeur fixe, puis indiquez son prix.</span></div><div class="material-band-options" id="materialBandOptions"></div><button class="secondary material-add-band" type="button" data-add-band-option>＋ Ajouter une option d’achat</button></div>
           <div class="material-live-summary" id="materialLiveSummary"></div>
           <div class="modal-actions"><button type="button" class="secondary" data-close-material-calculator>Annuler</button><button type="submit" class="primary">Enregistrer le calcul</button></div>
         </form>
@@ -48,6 +49,7 @@
   const modal = document.getElementById(calculatorModalId);
   const form = document.getElementById('materialCalculatorForm');
   const lines = document.getElementById('materialCalculatorLines');
+  const bandOptionsContainer = document.getElementById('materialBandOptions');
   const linkedMoulds = part => {
     const ids = new Set(part?.relatedMouldIds || []);
     data.moulds.forEach(mould => { if ((mould.linkedPartIds || []).includes(part?.id)) ids.add(mould.id); });
@@ -60,16 +62,14 @@
     return `CM-${String(max + 1).padStart(4, '0')}`;
   };
 
-  const supplyFromRecord = record => {
+  const suppliesFromRecord = record => {
     const legacy = record?.items?.[0] || {};
-    const supplyMode = (record?.supplyMode || legacy.supplyMode) === 'slit' ? 'slit' : 'precut';
-    return {
-      supplyMode,
-      sourceWidth: record?.sourceWidth ?? legacy.sourceWidth ?? '',
-      unitPrice: record?.unitPrice ?? legacy.unitPrice ?? (supplyMode === 'slit' ? legacy.sourcePrice : legacy.precutPrice) ?? ''
-    };
+    if (Array.isArray(record?.bandOptions) && record.bandOptions.length) return record.bandOptions.map(option => ({supplyMode:option.supplyMode === 'precut' ? 'precut' : 'slit', sourceWidth:option.sourceWidth ?? option.width ?? '', unitPrice:option.unitPrice ?? option.price ?? ''}));
+    const sourceWidth = record?.sourceWidth ?? legacy.sourceWidth ?? '';
+    const unitPrice = record?.unitPrice ?? legacy.unitPrice ?? legacy.sourcePrice ?? legacy.precutPrice ?? '';
+    return [{supplyMode:record?.supplyMode === 'precut' ? 'precut' : 'slit', sourceWidth, unitPrice}];
   };
-  const currentSupply = () => ({supplyMode: form.elements.supplyMode.value, sourceWidth: form.elements.sourceWidth.value, unitPrice: form.elements.unitPrice.value});
+  const currentSupplies = () => [...bandOptionsContainer.querySelectorAll('.material-band-option')].map(row => ({supplyMode:row.querySelector('[name="bandMode"]').value, sourceWidth:row.querySelector('[name="bandWidth"]').value, unitPrice:row.querySelector('[name="bandPrice"]').value}));
 
   function calculateItem(item, sharedSupply = null) {
     const part = partById(item.partId), mould = mouldById(item.mouldId), quantity = Math.max(0, number(item.quantity));
@@ -94,8 +94,8 @@
     return {part, mould, quantity, unitWeight, utilization, width, thickness, finishedWeight, rawWeight, supplyMode, sourceWidth, unitPrice, rollCount, leftoverWidth, slitYield, purchaseWeight, leftoverWeight, selectedCost, warnings};
   }
 
-  const itemSummary = (item, supply = currentSupply()) => {
-    const calc = calculateItem(item, supply);
+  const itemSummary = item => {
+    const calc = calculateItem(item, {supplyMode:'precut'});
     return `<span>Poids nécessaire : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Largeur utile : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
   };
 
@@ -141,11 +141,16 @@
     const warnings = [];
     if (!number(supply.unitPrice)) warnings.push('Prix par kilogramme manquant');
     if (supply.supplyMode === 'slit' && !number(supply.sourceWidth)) warnings.push('Largeur de bande mère manquante');
-    if (materials.length > 1) warnings.push(`Matières incompatibles pour une bande commune : ${materials.join(' / ')}`);
-    if (thicknesses.length > 1) warnings.push(`Épaisseurs incompatibles pour une bande commune : ${thicknesses.map(dimensionLabel).join(' / ')}`);
-    if (supply.supplyMode !== 'slit' && widths.length > 1) warnings.push(`Largeurs incompatibles pour une bande prédécoupée commune : ${widths.map(dimensionLabel).join(' / ')}`);
+    if (supply.supplyMode === 'slit' && materials.length > 1) warnings.push(`Matières incompatibles pour une bande commune : ${materials.join(' / ')}`);
+    if (supply.supplyMode === 'slit' && thicknesses.length > 1) warnings.push(`Épaisseurs incompatibles pour une bande commune : ${thicknesses.map(dimensionLabel).join(' / ')}`);
     if (supply.supplyMode === 'slit' && widths.some(width => width > number(supply.sourceWidth))) warnings.push('La bande mère est plus étroite que l’une des bandes nécessaires');
-    const canOptimize = supply.supplyMode === 'slit' && number(supply.sourceWidth) > 0 && materials.length <= 1 && thicknesses.length <= 1;
+    const allWidthsFit = widths.length > 0 && widths.every(width => width <= number(supply.sourceWidth));
+    const calculationsComplete = calculations.length > 0 && calculations.every(calc => calc.rawWeight > 0 && calc.width > 0 && calc.thickness > 0);
+    if (!calculationsComplete) warnings.push('Compléter les données de la pièce et de son outil');
+    const fixedBandValid = supply.supplyMode === 'slit' && number(supply.sourceWidth) > 0 && materials.length <= 1 && thicknesses.length <= 1 && allWidthsFit;
+    const precutValid = supply.supplyMode === 'precut' && widths.length > 0;
+    const valid = number(supply.unitPrice) > 0 && calculationsComplete && (fixedBandValid || precutValid);
+    const canOptimize = valid && supply.supplyMode === 'slit';
     const segments = canOptimize ? optimizeSharedCut(calculations, number(supply.sourceWidth)) : [];
     const requiredWeight = calculations.reduce((sum, calc) => sum + calc.rawWeight, 0);
     const purchaseWeight = canOptimize ? segments.reduce((sum, segment) => sum + segment.sourceWeight, 0) : requiredWeight;
@@ -157,9 +162,26 @@
       leftoverWeight,
       totalCost: purchaseWeight / 1000 * number(supply.unitPrice),
       segments,
-      warnings
+      warnings,
+      valid
     };
   }
+
+  function compareScenarios(items, supplies) {
+    const scenarios = supplies.map((supply,index) => {
+      const totals = projectTotals(items, supply);
+      const utilization = totals.purchaseWeight > 0 ? totals.requiredWeight / totals.purchaseWeight * 100 : 0;
+      return {index, supply, totals, utilization};
+    });
+    const validCosts = scenarios.filter(scenario => scenario.totals.valid && scenario.totals.totalCost > 0);
+    const validYields = scenarios.filter(scenario => scenario.totals.valid && scenario.utilization > 0);
+    const minimumCost = validCosts.length ? Math.min(...validCosts.map(scenario => scenario.totals.totalCost)) : 0;
+    const maximumYield = validYields.length ? Math.max(...validYields.map(scenario => scenario.utilization)) : 0;
+    return scenarios.map(scenario => ({...scenario, cheapest:minimumCost > 0 && Math.abs(scenario.totals.totalCost - minimumCost) < .01, bestYield:maximumYield > 0 && Math.abs(scenario.utilization - maximumYield) < .001}));
+  }
+
+  const supplyTitle = scenario => { const widths = [...new Set(scenario.totals.calculations.map(calc => number(calc.width)).filter(Boolean))]; return scenario.supply.supplyMode === 'precut' ? `Bande prédécoupée · ${widths.length > 1 ? 'largeurs selon les outils' : dimensionLabel(widths[0])}` : `Bande mère fixe ${dimensionLabel(scenario.supply.sourceWidth)}`; };
+  const scenarioCardsHtml = scenarios => `<div class="material-scenarios">${scenarios.map(scenario => `<section class="material-scenario ${scenario.cheapest ? 'is-cheapest' : ''} ${scenario.bestYield ? 'is-best-yield' : ''} ${scenario.totals.valid ? '' : 'is-invalid'}"><div class="material-scenario-head"><div><span>OPTION ${scenario.index + 1}</span><b>${supplyTitle(scenario)} · ${costLabel(scenario.supply.unitPrice)}/kg</b></div><div class="material-scenario-badges">${scenario.cheapest ? '<em>PRIX OPTIMAL</em>' : ''}${scenario.bestYield ? '<em>MEILLEUR RENDEMENT</em>' : ''}</div></div><div class="material-scenario-metrics"><span>Poids à acheter <b>${scenario.totals.valid ? weightLabel(scenario.totals.purchaseWeight) : 'Non calculable'}</b></span><span>Reste <b>${scenario.totals.valid ? weightLabel(scenario.totals.leftoverWeight) : '—'}</b></span><span>Utilisation <b>${scenario.totals.valid ? `${scenario.utilization.toLocaleString('fr-FR',{maximumFractionDigits:2})} %` : '—'}</b></span><span>Prix total <b>${scenario.totals.valid ? costLabel(scenario.totals.totalCost) : '—'}</b></span></div>${cutPlanHtml(scenario.totals.segments, scenario.totals.calculations)}${scenario.supply.supplyMode === 'precut' && scenario.totals.valid ? '<div class="material-precut-note">Largeur automatiquement reprise depuis chaque outil associé.</div>' : ''}${scenario.totals.warnings.length ? `<div class="material-project-warning">${safe(scenario.totals.warnings.join(' · '))}</div>` : ''}</section>`).join('')}</div>`;
 
   function partOptions(selected = '') {
     return `<option value="">Sélectionner une pièce</option>${[...data.parts].sort((a,b) => a.id.localeCompare(b.id, 'fr', {numeric:true})).map(part => `<option value="${safe(part.id)}" ${part.id === selected ? 'selected' : ''}>${safe(part.id)} · ${safe(part.name)}</option>`).join('')}`;
@@ -167,6 +189,14 @@
   function mouldOptions(partId, selected = '') {
     const moulds = linkedMoulds(partById(partId));
     return `<option value="">${partId ? (moulds.length ? 'Sélectionner le moule de la pièce' : 'Aucun moule associé à cette pièce') : 'Sélectionner d’abord une pièce'}</option>${moulds.map(mould => `<option value="${safe(mould.id)}" ${mould.id === selected ? 'selected' : ''}>${safe(mould.id)} · ${safe(mould.name)}</option>`).join('')}`;
+  }
+  function addBandOption(option = {}) {
+    const row = document.createElement('div');
+    row.className = 'material-band-option';
+    const mode = option.supplyMode === 'precut' ? 'precut' : 'slit';
+    row.innerHTML = `<label>Mode d’achat<select name="bandMode"><option value="precut" ${mode === 'precut' ? 'selected' : ''}>Bande prédécoupée</option><option value="slit" ${mode === 'slit' ? 'selected' : ''}>Bande mère à largeur fixe</option></select></label><label>Largeur (mm)<input name="bandWidth" type="number" min="0.01" step="any" value="${safe(option.sourceWidth || '')}" placeholder="Ex. 50"></label><label>Prix (€/kg)<input name="bandPrice" type="number" min="0" step="any" required value="${safe(option.unitPrice || '')}" placeholder="Ex. 15"></label><button class="danger" type="button" data-remove-band-option>Supprimer</button>`;
+    bandOptionsContainer.appendChild(row);
+    syncBandOptionRow(row);
   }
   function addLine(item = {}) {
     const row = document.createElement('div');
@@ -178,30 +208,46 @@
     return {partId: row.querySelector('[name="partId"]').value, quantity: row.querySelector('[name="quantity"]').value, mouldId: row.querySelector('[name="mouldId"]').value};
   }
   function currentItems() { return [...lines.querySelectorAll('.material-line')].map(rowItem); }
-  function toggleSupplyFields() { form.querySelectorAll('.project-slit-only').forEach(field => field.hidden = form.elements.supplyMode.value !== 'slit'); }
-  function refreshAllRows() { [...lines.querySelectorAll('.material-line')].forEach(row => { row.querySelector('.material-line-summary').innerHTML = itemSummary(rowItem(row)); }); updateLiveSummary(); }
+  function selectedToolWidths() { return [...new Set(currentItems().map(item => number(mouldById(item.mouldId)?.stripWidth)).filter(Boolean))]; }
+  function syncBandOptionRow(row) {
+    const mode = row.querySelector('[name="bandMode"]').value, widthInput = row.querySelector('[name="bandWidth"]');
+    const widths = selectedToolWidths();
+    if (mode === 'precut') {
+      widthInput.value = widths.length === 1 ? widths[0] : '';
+      widthInput.placeholder = widths.length > 1 ? 'Selon chaque outil' : 'Sélectionner le moule';
+      widthInput.readOnly = true;
+      widthInput.required = false;
+      row.classList.add('is-precut');
+    } else {
+      widthInput.readOnly = false;
+      widthInput.required = true;
+      widthInput.placeholder = 'Ex. 50';
+      row.classList.remove('is-precut');
+    }
+  }
+  function syncBandOptions() { [...bandOptionsContainer.querySelectorAll('.material-band-option')].forEach(syncBandOptionRow); }
+  function refreshAllRows() { [...lines.querySelectorAll('.material-line')].forEach(row => { row.querySelector('.material-line-summary').innerHTML = itemSummary(rowItem(row)); }); syncBandOptions(); updateLiveSummary(); }
   function updateRow(row, partChanged = false) {
     if (partChanged) row.querySelector('[name="mouldId"]').innerHTML = mouldOptions(row.querySelector('[name="partId"]').value);
     row.querySelector('.material-line-summary').innerHTML = itemSummary(rowItem(row));
+    syncBandOptions();
     updateLiveSummary();
   }
   function updateLiveSummary() {
-    const totals = projectTotals(currentItems(), currentSupply());
-    const complete = totals.calculations.filter(item => item.rawWeight && item.width && item.thickness).length;
-    document.getElementById('materialLiveSummary').innerHTML = `<h3>Résultat de la découpe commune</h3><div class="material-live-totals"><span>Poids nécessaire : <b>${weightLabel(totals.requiredWeight)}</b></span><span>Poids total à acheter : <b>${weightLabel(totals.purchaseWeight)}</b></span><span>Poids restant : <b>${weightLabel(totals.leftoverWeight)}</b></span><span>Prix total d’achat : <b>${costLabel(totals.totalCost)}</b></span><span>Pièces calculables : <b>${complete}/${totals.calculations.length}</b></span></div>${cutPlanHtml(totals.segments, totals.calculations)}${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}`;
+    syncBandOptions();
+    const items = currentItems(), scenarios = compareScenarios(items, currentSupplies());
+    const complete = items.map(item => calculateItem(item, {supplyMode:'precut'})).filter(item => item.rawWeight && item.width && item.thickness).length;
+    const requiredWeight = scenarios[0]?.totals.requiredWeight || 0;
+    document.getElementById('materialLiveSummary').innerHTML = `<h3>Comparaison des options d’approvisionnement</h3><div class="material-live-totals"><span>Poids nécessaire des pièces : <b>${weightLabel(requiredWeight)}</b></span><span>Pièces calculables : <b>${complete}/${items.length}</b></span><span>Options comparées : <b>${scenarios.length}</b></span></div>${scenarioCardsHtml(scenarios)}`;
   }
   function openCalculator(record) {
     if (!canEdit()) { toast('Mode lecture seule · modification interdite'); return; }
     editingId = record?.id || '';
-    form.reset(); lines.innerHTML = '';
+    form.reset(); lines.innerHTML = ''; bandOptionsContainer.innerHTML = '';
     form.elements.name.value = record?.name || '';
     form.elements.created.value = record?.created || new Date().toISOString().slice(0,10);
-    const supply = supplyFromRecord(record);
-    form.elements.supplyMode.value = supply.supplyMode;
-    form.elements.sourceWidth.value = supply.sourceWidth;
-    form.elements.unitPrice.value = supply.unitPrice;
-    toggleSupplyFields();
     (record?.items?.length ? record.items : [{}]).forEach(addLine);
+    suppliesFromRecord(record).forEach(addBandOption);
     document.getElementById('materialCalculatorEyebrow').textContent = record ? 'MODIFICATION' : 'NOUVEAU';
     document.getElementById('materialCalculatorTitle').textContent = record ? 'Modifier le projet matière' : 'Nouveau projet matière';
     updateLiveSummary(); modal.classList.add('open');
@@ -209,9 +255,8 @@
   function closeCalculator() { modal.classList.remove('open'); editingId = ''; }
 
   function resultCards(record) {
-    const sharedSupply = supplyFromRecord(record);
     return (record.items || []).map(item => {
-      const calc = calculateItem(item, sharedSupply);
+      const calc = calculateItem(item, {supplyMode:'precut'});
       return `<div class="material-result"><div><span class="material-result-label">Pièce</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Utilisation de la bande commune</span><b>${dimensionLabel(calc.width)} réservés à cette pièce</b><span>${safe(calc.part?.material || 'Matière à renseigner')}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
     }).join('');
   }
@@ -219,7 +264,7 @@
     ensureStore();
     const query = String(document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
     const records = data.materialCalculations.filter(record => !query || `${record.id} ${record.name}`.toLowerCase().includes(query));
-    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Calcul des besoins initiaux</h2><p>Définissez une bande initiale commune : le système combine les largeurs des différentes pièces pour proposer une découpe partagée.</p></div><div class="material-formula">Exemple : bande 50 mm = 15 mm ENT + 21 mm ASTOR + 14 mm restant<br>Prix d’achat = poids total de la bande mère × prix par kg</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const supply = supplyFromRecord(record), totals = projectTotals(record.items || [], supply); return `<article class="material-project-card"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s)</small></div><div class="material-project-actions"><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-shared-result"><b>Bande commune · ${supply.supplyMode === 'slit' ? `mère ${dimensionLabel(supply.sourceWidth)}` : 'prédécoupée'}</b><span>Poids nécessaire ${weightLabel(totals.requiredWeight)}</span><span>Poids à acheter ${weightLabel(totals.purchaseWeight)}</span><span>Reste ${weightLabel(totals.leftoverWeight)}</span><span>Prix ${costLabel(totals.totalCost)}</span></div>${cutPlanHtml(totals.segments, totals.calculations)}${totals.warnings.length ? `<div class="material-project-warning">${safe(totals.warnings.join(' · '))}</div>` : ''}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Utilisation de la bande commune</span></div><div class="material-result-grid">${resultCards(record)}</div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour calculer une découpe commune.</div>`}`;
+    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Comparaison des bandes mères</h2><p>Ajoutez plusieurs largeurs et prix : le système calcule chaque plan de découpe et compare le coût avec l’utilisation matière.</p></div><div class="material-formula">Prix optimal = coût d’achat total le plus bas<br>Meilleur rendement = pourcentage de matière utile le plus élevé</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const scenarios = compareScenarios(record.items || [], suppliesFromRecord(record)), expanded = expandedMaterialIds.has(record.id); return `<article class="material-project-card ${expanded ? 'is-expanded' : 'is-collapsed'}"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s) · ${scenarios.length} option(s)</small></div><div class="material-project-actions"><button class="material-toggle secondary" data-toggle-material="${safe(record.id)}" aria-expanded="${expanded}">${expanded ? '▲ Réduire' : '▼ Afficher les détails'}</button><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-project-body" ${expanded ? '' : 'hidden'}>${scenarioCardsHtml(scenarios)}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Besoin de découpe</span></div><div class="material-result-grid">${resultCards(record)}</div></div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour comparer plusieurs bandes mères.</div>`}`;
   }
 
   const previousRender = render;
@@ -241,35 +286,39 @@
   document.addEventListener('click', event => {
     if (event.target.closest('[data-close-material-calculator]')) closeCalculator();
     if (event.target.closest('[data-add-material-line]')) { addLine(); updateLiveSummary(); }
+    if (event.target.closest('[data-add-band-option]')) { addBandOption(); updateLiveSummary(); }
+    const removeBand = event.target.closest('[data-remove-band-option]');
+    if (removeBand) { removeBand.closest('.material-band-option').remove(); if (!bandOptionsContainer.children.length) addBandOption(); updateLiveSummary(); }
     const remove = event.target.closest('[data-remove-material-line]');
     if (remove) { remove.closest('.material-line').remove(); if (!lines.children.length) addLine(); updateLiveSummary(); }
+    const toggle = event.target.closest('[data-toggle-material]');
+    if (toggle) { const id = toggle.dataset.toggleMaterial; if (expandedMaterialIds.has(id)) expandedMaterialIds.delete(id); else expandedMaterialIds.add(id); render(); }
     const edit = event.target.closest('[data-edit-material]');
     if (edit) openCalculator(data.materialCalculations.find(record => record.id === edit.dataset.editMaterial));
     const del = event.target.closest('[data-delete-material]');
-    if (del && canEdit() && confirm('Supprimer ce calcul matière ?')) { data.materialCalculations = data.materialCalculations.filter(record => record.id !== del.dataset.deleteMaterial); save(); render(); toast('Calcul matière supprimé'); }
+    if (del && canEdit() && confirm('Supprimer ce calcul matière ?')) { expandedMaterialIds.delete(del.dataset.deleteMaterial); data.materialCalculations = data.materialCalculations.filter(record => record.id !== del.dataset.deleteMaterial); save(); render(); toast('Calcul matière supprimé'); }
   });
   lines.addEventListener('change', event => {
     const row = event.target.closest('.material-line');
     if (row) updateRow(row, event.target.name === 'partId');
   });
   lines.addEventListener('input', event => { const row = event.target.closest('.material-line'); if (row) updateRow(row); });
-  form.addEventListener('change', event => {
-    if (!['supplyMode', 'sourceWidth', 'unitPrice'].includes(event.target.name)) return;
-    toggleSupplyFields(); refreshAllRows();
-  });
-  form.addEventListener('input', event => {
-    if (!['sourceWidth', 'unitPrice'].includes(event.target.name)) return;
-    refreshAllRows();
-  });
+  bandOptionsContainer.addEventListener('change', updateLiveSummary);
+  bandOptionsContainer.addEventListener('input', updateLiveSummary);
   form.addEventListener('submit', event => {
     event.preventDefault(); if (!canEdit()) return;
     const items = currentItems();
     if (!items.length || items.some(item => !item.partId || !item.mouldId || number(item.quantity) <= 0)) { toast('Sélectionnez une pièce, sa quantité et son moule pour chaque ligne'); return; }
     ensureStore();
     const existing = data.materialCalculations.find(record => record.id === editingId), wasEditing = Boolean(existing);
-    const supply = currentSupply();
-    const record = {id: existing?.id || nextCalculationId(), name: form.elements.name.value.trim(), created: form.elements.created.value, supplyMode:supply.supplyMode, sourceWidth:number(supply.sourceWidth), unitPrice:number(supply.unitPrice), items: items.map(item => ({...item, quantity:number(item.quantity)}))};
+    const bandOptions = currentSupplies().map(option => ({supplyMode:option.supplyMode, sourceWidth:number(option.sourceWidth), unitPrice:number(option.unitPrice)}));
+    if (!bandOptions.length || bandOptions.some(option => option.unitPrice <= 0 || (option.supplyMode === 'slit' && option.sourceWidth <= 0))) { toast('Renseignez une largeur fixe si nécessaire et un prix valide pour chaque option'); return; }
+    const fixedBands = bandOptions.filter(option => option.supplyMode === 'slit');
+    const duplicateWidths = fixedBands.some((option,index) => fixedBands.findIndex(candidate => candidate.sourceWidth === option.sourceWidth) !== index);
+    if (duplicateWidths) { toast('Chaque bande candidate doit avoir une largeur différente'); return; }
+    const record = {id: existing?.id || nextCalculationId(), name: form.elements.name.value.trim(), created: form.elements.created.value, bandOptions, items: items.map(item => ({...item, quantity:number(item.quantity)}))};
     if (existing) data.materialCalculations[data.materialCalculations.indexOf(existing)] = record; else data.materialCalculations.unshift(record);
+    expandedMaterialIds.add(record.id);
     save(); closeCalculator(); render(); toast(wasEditing ? 'Calcul matière mis à jour' : 'Calcul matière créé');
   });
   modal.addEventListener('click', event => { if (event.target === modal) closeCalculator(); });
