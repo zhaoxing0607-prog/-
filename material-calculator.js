@@ -281,11 +281,39 @@
       return `<div class="material-result"><div><span class="material-result-label">Pièce n° ${index + 1}</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Utilisation de la bande commune</span><b>${dimensionLabel(calc.width)} réservés à cette pièce</b><span>${safe(calc.part?.material || 'Matière à renseigner')}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
     }).join('');
   }
+  function exportMaterialReport(record) {
+    if (!record) { toast('Projet matière introuvable'); return; }
+    if (!window.MaterialPdfExport) { toast('Le module PDF est indisponible'); return; }
+    const scenarios = compareScenarios(record.items || [], suppliesFromRecord(record));
+    const report = {
+      id: record.id,
+      name: record.name,
+      created: record.created,
+      exportedAt: new Date().toLocaleDateString('fr-FR'),
+      options: scenarios.map(scenario => ({
+        title: `${supplyTitle(scenario)} - ${costLabel(scenario.supply.unitPrice)}/kg`,
+        valid: scenario.totals.valid,
+        purchaseWeight: scenario.totals.valid ? weightLabel(scenario.totals.purchaseWeight) : 'Non calculable',
+        leftoverWeight: scenario.totals.valid ? weightLabel(scenario.totals.leftoverWeight) : '-',
+        utilization: scenario.totals.valid ? `${scenario.utilization.toLocaleString('fr-FR',{maximumFractionDigits:2})} %` : '-',
+        totalCost: scenario.totals.valid ? costLabel(scenario.totals.totalCost) : '-',
+        warnings: scenario.totals.warnings
+      })),
+      items: (record.items || []).map(item => {
+        const calc = calculateItem(item, {supplyMode:'precut'});
+        return {id:calc.part?.id || item.partId, name:calc.part?.name || 'Pièce inconnue', quantity:calc.quantity.toLocaleString('fr-FR'), mould:calc.mould ? `${calc.mould.id} - ${calc.mould.name}` : 'Non sélectionné', material:calc.part?.material || 'À renseigner', width:dimensionLabel(calc.width), thickness:dimensionLabel(calc.thickness), requiredWeight:calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'};
+      })
+    };
+    const bytes = window.MaterialPdfExport.buildMaterialReportPdf(report);
+    const filename = `Rapport_matiere_${record.id}_${record.name}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'');
+    window.MaterialPdfExport.download(bytes, `${filename}.pdf`);
+    toast('Rapport PDF généré');
+  }
   function calculatorPage() {
     ensureStore();
     const query = String(document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
     const records = data.materialCalculations.filter(record => !query || `${record.id} ${record.name}`.toLowerCase().includes(query));
-    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Comparaison des bandes mères</h2><p>Ajoutez plusieurs largeurs et prix : le système calcule chaque plan de découpe et compare le coût avec l’utilisation matière.</p></div><div class="material-formula">Prix optimal = coût d’achat total le plus bas<br>Meilleur rendement = pourcentage de matière utile le plus élevé</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const scenarios = compareScenarios(record.items || [], suppliesFromRecord(record)), expanded = expandedMaterialIds.has(record.id); return `<article class="material-project-card ${expanded ? 'is-expanded' : 'is-collapsed'}"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s) · ${scenarios.length} option(s)</small></div><div class="material-project-actions"><button class="material-toggle secondary" data-toggle-material="${safe(record.id)}" aria-expanded="${expanded}">${expanded ? '▲ Réduire' : '▼ Afficher les détails'}</button><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-project-body" ${expanded ? '' : 'hidden'}>${scenarioCardsHtml(scenarios)}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Besoin de découpe</span></div><div class="material-result-grid">${resultCards(record)}</div></div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour comparer plusieurs bandes mères.</div>`}`;
+    return `<section class="material-calculator-intro"><div><span class="eyebrow">PRÉPARATION MATIÈRE</span><h2>Comparaison des bandes mères</h2><p>Ajoutez plusieurs largeurs et prix : le système calcule chaque plan de découpe et compare le coût avec l’utilisation matière.</p></div><div class="material-formula">Prix optimal = coût d’achat total le plus bas<br>Meilleur rendement = pourcentage de matière utile le plus élevé</div></section>${records.length ? `<div class="material-project-list">${records.map(record => { const scenarios = compareScenarios(record.items || [], suppliesFromRecord(record)), expanded = expandedMaterialIds.has(record.id); return `<article class="material-project-card ${expanded ? 'is-expanded' : 'is-collapsed'}"><div class="material-project-head"><div><span class="eyebrow">${safe(record.id)}</span><h3>${safe(record.name)}</h3><small>${safe(record.created)} · ${(record.items || []).length} référence(s) · ${scenarios.length} option(s)</small></div><div class="material-project-actions"><button class="material-toggle secondary" data-toggle-material="${safe(record.id)}" aria-expanded="${expanded}">${expanded ? '▲ Réduire' : '▼ Afficher les détails'}</button><button class="material-export-pdf" data-export-material-pdf="${safe(record.id)}">Exporter PDF</button><button class="secondary" data-edit-material="${safe(record.id)}">Modifier</button><button class="danger" data-delete-material="${safe(record.id)}">Supprimer</button></div></div><div class="material-project-body" ${expanded ? '' : 'hidden'}>${scenarioCardsHtml(scenarios)}<div class="material-result-head"><span>Pièce</span><span>Quantité / moule</span><span>Poids nécessaire</span><span>Largeur × épaisseur</span><span>Besoin de découpe</span></div><div class="material-result-grid">${resultCards(record)}</div></div></article>`; }).join('')}</div>` : `<div class="material-empty"><b>Aucun calcul matière enregistré</b>Créez un projet pour comparer plusieurs bandes mères.</div>`}`;
   }
 
   const previousRender = render;
@@ -316,6 +344,8 @@
     if (toggle) { const id = toggle.dataset.toggleMaterial; if (expandedMaterialIds.has(id)) expandedMaterialIds.delete(id); else expandedMaterialIds.add(id); render(); }
     const edit = event.target.closest('[data-edit-material]');
     if (edit) openCalculator(data.materialCalculations.find(record => record.id === edit.dataset.editMaterial));
+    const exportPdf = event.target.closest('[data-export-material-pdf]');
+    if (exportPdf) exportMaterialReport(data.materialCalculations.find(record => record.id === exportPdf.dataset.exportMaterialPdf));
     const del = event.target.closest('[data-delete-material]');
     if (del && canEdit() && confirm('Supprimer ce calcul matière ?')) { expandedMaterialIds.delete(del.dataset.deleteMaterial); data.materialCalculations = data.materialCalculations.filter(record => record.id !== del.dataset.deleteMaterial); save(); render(); toast('Calcul matière supprimé'); }
   });
