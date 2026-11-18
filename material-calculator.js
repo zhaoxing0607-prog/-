@@ -41,7 +41,7 @@
           <div class="material-project-fields"><label class="field"><span>Nom du projet / calcul</span><input name="name" required maxlength="160" placeholder="Ex. Série ASTOR KDR 28"></label><label class="field"><span>Date</span><input name="created" type="date" required></label></div>
           <div class="material-lines" id="materialCalculatorLines"></div>
           <button class="secondary material-add-line" type="button" data-add-material-line>＋ Ajouter une pièce</button>
-          <div class="material-project-supply"><div class="material-shared-title"><b>Options d’approvisionnement</b><span>Une bande prédécoupée correspond à une seule pièce ; une bande mère peut regrouper plusieurs pièces.</span></div><div class="material-band-options" id="materialBandOptions"></div><button class="secondary material-add-band" type="button" data-add-band-option>＋ Ajouter une option d’achat</button></div>
+          <div class="material-project-supply"><div class="material-shared-title"><b>Options d’approvisionnement</b><span>Une bande prédécoupée correspond à une seule pièce ; une bande mère peut regrouper plusieurs pièces. Le calcul est autorisé uniquement si la pièce et son moule sont tous les deux confirmés « Gelé ».</span></div><div class="material-band-options" id="materialBandOptions"></div><button class="secondary material-add-band" type="button" data-add-band-option>＋ Ajouter une option d’achat</button></div>
           <div class="material-live-summary" id="materialLiveSummary"></div>
           <div class="modal-actions"><button type="button" class="secondary" data-close-material-calculator>Annuler</button><button type="submit" class="primary">Enregistrer le calcul</button></div>
         </form>
@@ -92,16 +92,19 @@
     const warnings = [];
     if (!part) warnings.push('Pièce introuvable');
     if (!mould) warnings.push('Choisir le moule associé');
+    if (part && part.validationStatus !== 'Gelé') warnings.push('Informations de la pièce non gelées');
+    if (mould && mould.validationStatus !== 'Gelé') warnings.push('Informations du moule non gelées');
     if (!unitWeight) warnings.push('Poids unitaire manquant');
     if (!utilization) warnings.push('Taux d’utilisation manquant');
     if (!width) warnings.push('Largeur de bande manquante');
     if (!thickness) warnings.push('Épaisseur manquante');
-    return {part, mould, quantity, unitWeight, utilization, width, thickness, finishedWeight, rawWeight, supplyMode, sourceWidth, unitPrice, rollCount, leftoverWidth, slitYield, purchaseWeight, leftoverWeight, selectedCost, warnings};
+    const dataFrozen = Boolean(part && mould && part.validationStatus === 'Gelé' && mould.validationStatus === 'Gelé');
+    return {part, mould, quantity, unitWeight, utilization, width, thickness, finishedWeight, rawWeight, supplyMode, sourceWidth, unitPrice, rollCount, leftoverWidth, slitYield, purchaseWeight, leftoverWeight, selectedCost, dataFrozen, warnings};
   }
 
   const itemSummary = item => {
     const calc = calculateItem(item, {supplyMode:'precut'});
-    return `<span>Poids nécessaire : <b>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'À calculer'}</b></span><span>Largeur utile : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
+    return `<span>Poids nécessaire : <b>${calc.dataFrozen&&calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul bloqué'}</b></span><span>Largeur utile : <b>${dimensionLabel(calc.width)}</b></span><span>Épaisseur : <b>${dimensionLabel(calc.thickness)}</b></span>${calc.warnings.map(warning => `<span class="warning">${safe(warning)}</span>`).join('')}`;
   };
 
   function optimizeSharedCut(calculations, sourceWidth) {
@@ -153,7 +156,7 @@
     if (supply.supplyMode === 'slit' && thicknesses.length > 1) warnings.push(`Épaisseurs incompatibles pour une bande commune : ${thicknesses.map(dimensionLabel).join(' / ')}`);
     if (supply.supplyMode === 'slit' && widths.some(width => width > number(supply.sourceWidth))) warnings.push('La bande mère est plus étroite que l’une des bandes nécessaires');
     const allWidthsFit = widths.length > 0 && widths.every(width => width <= number(supply.sourceWidth));
-    const calculationsComplete = calculations.length > 0 && calculations.every(calc => calc.rawWeight > 0 && calc.width > 0 && calc.thickness > 0);
+    const calculationsComplete = calculations.length > 0 && calculations.every(calc => calc.rawWeight > 0 && calc.width > 0 && calc.thickness > 0 && calc.dataFrozen);
     if (!calculationsComplete) warnings.push('Compléter les données de la pièce et de son outil');
     const fixedBandValid = supply.supplyMode === 'slit' && number(supply.sourceWidth) > 0 && materials.length <= 1 && thicknesses.length <= 1 && allWidthsFit;
     const precutValid = supply.supplyMode === 'precut' && widths.length > 0;
@@ -192,11 +195,11 @@
   const scenarioCardsHtml = scenarios => `<div class="material-scenarios">${scenarios.map(scenario => `<section class="material-scenario ${scenario.cheapest ? 'is-cheapest' : ''} ${scenario.bestYield ? 'is-best-yield' : ''} ${scenario.totals.valid ? '' : 'is-invalid'}"><div class="material-scenario-head"><div><span>OPTION ${scenario.index + 1}</span><b>${supplyTitle(scenario)} · ${costLabel(scenario.supply.unitPrice)}/kg</b></div><div class="material-scenario-badges">${scenario.cheapest ? '<em>PRIX OPTIMAL</em>' : ''}${scenario.bestYield ? '<em>MEILLEUR RENDEMENT</em>' : ''}</div></div><div class="material-scenario-metrics"><span>Poids à acheter <b>${scenario.totals.valid ? weightLabel(scenario.totals.purchaseWeight) : 'Non calculable'}</b></span><span>Reste <b>${scenario.totals.valid ? weightLabel(scenario.totals.leftoverWeight) : '—'}</b></span><span>Utilisation <b>${scenario.totals.valid ? `${scenario.utilization.toLocaleString('fr-FR',{maximumFractionDigits:2})} %` : '—'}</b></span><span>Prix total <b>${scenario.totals.valid ? costLabel(scenario.totals.totalCost) : '—'}</b></span></div>${cutPlanHtml(scenario.totals.segments, scenario.totals.calculations)}${scenario.supply.supplyMode === 'precut' && scenario.totals.valid ? '<div class="material-precut-note">Largeur automatiquement reprise depuis chaque outil associé.</div>' : ''}${scenario.totals.warnings.length ? `<div class="material-project-warning">${safe(scenario.totals.warnings.join(' · '))}</div>` : ''}</section>`).join('')}</div>`;
 
   function partOptions(selected = '') {
-    return `<option value="">Sélectionner une pièce</option>${[...data.parts].sort((a,b) => a.id.localeCompare(b.id, 'fr', {numeric:true})).map(part => `<option value="${safe(part.id)}" ${part.id === selected ? 'selected' : ''}>${safe(part.id)} · ${safe(part.name)}</option>`).join('')}`;
+    return `<option value="">Sélectionner une pièce</option>${[...data.parts].sort((a,b) => a.id.localeCompare(b.id, 'fr', {numeric:true})).map(part => `<option value="${safe(part.id)}" ${part.id === selected ? 'selected' : ''} ${part.validationStatus==='Gelé'?'':'disabled'}>${safe(part.id)} · ${safe(part.name)} · ${part.validationStatus==='Gelé'?'Gelé':'Non validé'}</option>`).join('')}`;
   }
   function mouldOptions(partId, selected = '') {
     const moulds = linkedMoulds(partById(partId));
-    return `<option value="">${partId ? (moulds.length ? 'Sélectionner le moule de la pièce' : 'Aucun moule associé à cette pièce') : 'Sélectionner d’abord une pièce'}</option>${moulds.map(mould => `<option value="${safe(mould.id)}" ${mould.id === selected ? 'selected' : ''}>${safe(mould.id)} · ${safe(mould.name)}</option>`).join('')}`;
+    return `<option value="">${partId ? (moulds.length ? 'Sélectionner le moule de la pièce' : 'Aucun moule associé à cette pièce') : 'Sélectionner d’abord une pièce'}</option>${moulds.map(mould => `<option value="${safe(mould.id)}" ${mould.id === selected ? 'selected' : ''} ${mould.validationStatus==='Gelé'?'':'disabled'}>${safe(mould.id)} · ${safe(mould.name)} · ${mould.validationStatus==='Gelé'?'Gelé':'Non validé'}</option>`).join('')}`;
   }
   function addBandOption(option = {}) {
     const row = document.createElement('div');
@@ -257,8 +260,9 @@
   function updateLiveSummary() {
     syncBandOptions();
     const items = currentItems(), scenarios = compareScenarios(items, currentSupplies());
-    const complete = items.map(item => calculateItem(item, {supplyMode:'precut'})).filter(item => item.rawWeight && item.width && item.thickness).length;
-    const requiredWeight = items.reduce((sum,item) => sum + calculateItem(item, {supplyMode:'precut'}).rawWeight, 0);
+    const itemCalculations = items.map(item => calculateItem(item, {supplyMode:'precut'}));
+    const complete = itemCalculations.filter(item => item.dataFrozen && item.rawWeight && item.width && item.thickness).length;
+    const requiredWeight = itemCalculations.reduce((sum,item) => sum + (item.dataFrozen ? item.rawWeight : 0), 0);
     document.getElementById('materialLiveSummary').innerHTML = `<h3>Comparaison des options d’approvisionnement</h3><div class="material-live-totals"><span>Poids nécessaire des pièces : <b>${weightLabel(requiredWeight)}</b></span><span>Pièces calculables : <b>${complete}/${items.length}</b></span><span>Options comparées : <b>${scenarios.length}</b></span></div>${scenarioCardsHtml(scenarios)}`;
   }
   function openCalculator(record) {
@@ -278,7 +282,7 @@
   function resultCards(record) {
     return (record.items || []).map((item,index) => {
       const calc = calculateItem(item, {supplyMode:'precut'});
-      return `<div class="material-result"><div><span class="material-result-label">Pièce n° ${index + 1}</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'}</strong></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Utilisation de la bande commune</span><b>${dimensionLabel(calc.width)} réservés à cette pièce</b><span>${safe(calc.part?.material || 'Matière à renseigner')}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
+      return `<div class="material-result"><div><span class="material-result-label">Pièce n° ${index + 1}</span><b>${safe(calc.part?.id || item.partId)} · ${safe(calc.part?.name || 'Pièce inconnue')}</b></div><div><span class="material-result-label">Quantité / moule</span><span>${calc.quantity.toLocaleString('fr-FR')} pièce(s)</span><b>${calc.mould ? `${safe(calc.mould.id)} · ${safe(calc.mould.name)}` : 'Moule non sélectionné'}</b></div><div><span class="material-result-label">Poids nécessaire</span><strong>${calc.dataFrozen&&calc.rawWeight ? weightLabel(calc.rawWeight) : 'Données non gelées'}</strong></div><div><span class="material-result-label">Largeur / épaisseur</span><strong>${dimensionLabel(calc.width)} × ${dimensionLabel(calc.thickness)}</strong></div><div><span class="material-result-label">Utilisation de la bande commune</span><b>${calc.dataFrozen?`${dimensionLabel(calc.width)} réservés à cette pièce`:'Calcul bloqué'}</b><span>${safe(calc.part?.material || 'Matière à renseigner')}</span></div>${calc.warnings.length ? `<span class="material-warning">${safe(calc.warnings.join(' · '))}</span>` : ''}</div>`;
     }).join('');
   }
   function exportMaterialReport(record) {
@@ -301,7 +305,7 @@
       })),
       items: (record.items || []).map(item => {
         const calc = calculateItem(item, {supplyMode:'precut'});
-        return {id:calc.part?.id || item.partId, name:calc.part?.name || 'Pièce inconnue', quantity:calc.quantity.toLocaleString('fr-FR'), mould:calc.mould ? `${calc.mould.id} - ${calc.mould.name}` : 'Non sélectionné', material:calc.part?.material || 'À renseigner', width:dimensionLabel(calc.width), thickness:dimensionLabel(calc.thickness), requiredWeight:calc.rawWeight ? weightLabel(calc.rawWeight) : 'Calcul incomplet'};
+        return {id:calc.part?.id || item.partId, name:calc.part?.name || 'Pièce inconnue', quantity:calc.quantity.toLocaleString('fr-FR'), mould:calc.mould ? `${calc.mould.id} - ${calc.mould.name}` : 'Non sélectionné', material:calc.part?.material || 'À renseigner', width:dimensionLabel(calc.width), thickness:dimensionLabel(calc.thickness), requiredWeight:calc.dataFrozen&&calc.rawWeight ? weightLabel(calc.rawWeight) : 'Données non gelées'};
       })
     };
     const bytes = window.MaterialPdfExport.buildMaterialReportPdf(report);
@@ -360,6 +364,7 @@
     event.preventDefault(); if (!canEdit()) return;
     const items = currentItems();
     if (!items.length || items.some(item => !item.partId || !item.mouldId || number(item.quantity) <= 0)) { toast('Sélectionnez une pièce, sa quantité et son moule pour chaque ligne'); return; }
+    if (items.some(item => partById(item.partId)?.validationStatus !== 'Gelé' || mouldById(item.mouldId)?.validationStatus !== 'Gelé')) { toast('Calcul impossible : la pièce et son moule doivent être confirmés Gelé'); return; }
     ensureStore();
     const existing = data.materialCalculations.find(record => record.id === editingId), wasEditing = Boolean(existing);
     const bandOptions = currentSupplies().map(option => ({supplyMode:option.supplyMode, sourceWidth:number(option.sourceWidth), unitPrice:number(option.unitPrice), itemKeys:option.itemKeys}));
