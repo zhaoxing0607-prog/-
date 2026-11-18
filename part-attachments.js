@@ -1,7 +1,8 @@
 (() => {
   const MAX_FILES = 5;
   const MAX_SIZE = 10 * 1024 * 1024;
-  const acceptedExtensions = /\.(jpe?g|png|webp|pdf|docx?|xlsx?|txt|csv|zip|stl|obj|glb|gltf)$/i;
+  const acceptedExtensions = /\.(jpe?g|png|webp|pdf|docx?|xlsx?|txt|csv|zip)$/i;
+  const modelExtensions = /\.(stl|obj|glb|gltf)$/i;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
@@ -26,17 +27,25 @@
     const part = data.parts.find(item => item.id === selectedPartId);
     const html = basePartDashboard();
     if (!part) return html;
-    const documents = Array.isArray(part.documents) ? part.documents : [];
+    const storedDocuments = Array.isArray(part.documents) ? part.documents : [];
+    const legacyModel = storedDocuments.find(file => fileIcon(file) === '3D');
+    const model = part.model3d?.path ? part.model3d : legacyModel;
+    const documents = storedDocuments.filter(file => fileIcon(file) !== '3D');
     const list = documents.length
       ? `<div class="achat-attachment-card-list">${documents.map(file => `<div class="achat-attachment-file"><span class="achat-file-icon ${fileIcon(file)==='3D'?'is-3d':''}">${fileIcon(file)}</span><div><b>${escapeHtml(file.name || 'Document')}</b><small>${formatSize(file.size)}</small></div><button type="button" data-open-part-document="${escapeHtml(file.path)}">${['IMG','PDF','3D'].includes(fileIcon(file)) ? 'Lire dans la fenêtre' : 'Ouvrir / télécharger'}</button>${canEdit() ? `<button type="button" class="danger" data-delete-part-document="${escapeHtml(file.path)}">Supprimer</button>` : ''}</div>`).join('')}</div>`
       : '<div class="empty">Aucun document associé à cette pièce.</div>';
-    return `${html}<section class="card achat-attachments-card part-documents-card"><div class="card-head"><div><span class="section-kicker">DOCUMENTS ASSOCIÉS</span><h3>Documents de la pièce</h3><span class="sub">Photos, PDF, documents et modèles 3D STL, OBJ, GLB ou GLTF</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-documents="${escapeHtml(part.id)}">＋ Ajouter des documents</button>` : ''}</div>${list}</section>`;
+    const modelContent = model
+      ? `<div class="part-model-card"><div class="part-model-card-icon">3D</div><div><b>${escapeHtml(model.name || 'Modèle 3D')}</b><small>${formatSize(model.size)} · ${escapeHtml(String(model.name || '').split('.').pop().toUpperCase())}</small></div><button type="button" data-open-part-document="${escapeHtml(model.path)}">Visualiser le modèle</button>${canEdit() ? `<button type="button" class="danger" data-delete-part-model="${escapeHtml(model.path)}">Supprimer</button>` : ''}</div>`
+      : '<div class="empty">Aucun modèle 3D associé à cette pièce.</div>';
+    return `${html}<section class="card achat-attachments-card part-documents-card"><div class="card-head"><div><span class="section-kicker">DOCUMENTS ASSOCIÉS</span><h3>Documents de la pièce</h3><span class="sub">Photos, plans, fiches techniques, PDF, Word, Excel ou ZIP</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-documents="${escapeHtml(part.id)}">＋ Ajouter des documents</button>` : ''}</div>${list}</section><section class="card part-model-card-section"><div class="card-head"><div><span class="section-kicker">MODÈLE 3D</span><h3>Modèle 3D de la pièce</h3><span class="sub">STL, OBJ, GLB ou GLTF · rotation et zoom en ligne</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-model="${escapeHtml(part.id)}">${model ? '↻ Remplacer le modèle 3D' : '＋ Ajouter un modèle 3D'}</button>` : ''}</div>${modelContent}</section>`;
   };
 
-  document.body.insertAdjacentHTML('beforeend', `<input type="file" id="partDocumentInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.stl,.obj,.glb,.gltf" hidden><div class="part-document-viewer" id="partDocumentViewer" aria-hidden="true"><section class="part-document-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="partDocumentViewerTitle"><header><div><span class="section-kicker">LECTURE DU DOCUMENT</span><h3 id="partDocumentViewerTitle">Document associé</h3></div><div><span class="part-3d-help" id="part3dHelp">Glisser pour tourner · molette pour zoomer</span><a id="partDocumentViewerExternal" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a><button type="button" data-close-part-document-viewer aria-label="Fermer">×</button></div></header><div class="part-document-viewer-content" id="partDocumentViewerContent"></div></section></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<input type="file" id="partDocumentInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" hidden><input type="file" id="partModelInput" accept=".stl,.obj,.glb,.gltf" hidden><div class="part-document-viewer" id="partDocumentViewer" aria-hidden="true"><section class="part-document-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="partDocumentViewerTitle"><header><div><span class="section-kicker" id="partDocumentViewerEyebrow">LECTURE DU DOCUMENT</span><h3 id="partDocumentViewerTitle">Document associé</h3></div><div><span class="part-3d-help" id="part3dHelp">Glisser pour tourner · molette pour zoomer</span><a id="partDocumentViewerExternal" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a><button type="button" data-close-part-document-viewer aria-label="Fermer">×</button></div></header><div class="part-document-viewer-content" id="partDocumentViewerContent"></div></section></div>`);
   const input = document.querySelector('#partDocumentInput');
+  const modelInput = document.querySelector('#partModelInput');
   const viewer = document.querySelector('#partDocumentViewer');
   const viewerTitle = document.querySelector('#partDocumentViewerTitle');
+  const viewerEyebrow = document.querySelector('#partDocumentViewerEyebrow');
   const viewerContent = document.querySelector('#partDocumentViewerContent');
   const viewerExternal = document.querySelector('#partDocumentViewerExternal');
   const viewer3dHelp = document.querySelector('#part3dHelp');
@@ -148,6 +157,7 @@
     viewerTitle.textContent = file.name || 'Document associé';
     viewerExternal.href = url;
     const icon = fileIcon(file);
+    viewerEyebrow.textContent = icon === '3D' ? 'VISUALISATION DU MODÈLE 3D' : 'LECTURE DU DOCUMENT';
     viewer3dHelp.hidden = icon !== '3D';
     viewer.classList.add('open');
     viewer.setAttribute('aria-hidden', 'false');
@@ -177,10 +187,19 @@
       return;
     }
 
+    const addModel = event.target.closest('[data-add-part-model]');
+    if (addModel) {
+      if (!canEdit()) return;
+      targetPartId = addModel.dataset.addPartModel;
+      modelInput.value = '';
+      modelInput.click();
+      return;
+    }
+
     const open = event.target.closest('[data-open-part-document]');
     if (open) {
       const part = data.parts.find(item => item.id === selectedPartId);
-      const file = (part?.documents || []).find(item => item.path === open.dataset.openPartDocument) || {path:open.dataset.openPartDocument, name:'Document'};
+      const file = [part?.model3d, ...(part?.documents || [])].filter(Boolean).find(item => item.path === open.dataset.openPartDocument) || {path:open.dataset.openPartDocument, name:'Document'};
       const previewable = ['IMG', 'PDF', '3D'].includes(fileIcon(file));
       const popup = previewable ? null : window.open('about:blank', '_blank');
       if (popup) popup.opener = null;
@@ -196,6 +215,26 @@
         toast(error.message || 'Impossible d’ouvrir le document');
       } finally {
         open.disabled = false;
+      }
+      return;
+    }
+
+    const removeModel = event.target.closest('[data-delete-part-model]');
+    if (removeModel && canEdit()) {
+      const part = data.parts.find(item => item.id === selectedPartId);
+      const path = removeModel.dataset.deletePartModel;
+      if (!part || !confirm('Supprimer définitivement le modèle 3D associé ?')) return;
+      removeModel.disabled = true;
+      try {
+        await window.MoldCloud.removeAchatAttachment(path);
+        if (part.model3d?.path === path) delete part.model3d;
+        part.documents = (part.documents || []).filter(file => file.path !== path);
+        save();
+        render();
+        toast('Modèle 3D supprimé');
+      } catch (error) {
+        removeModel.disabled = false;
+        toast(error.message || 'Impossible de supprimer le modèle 3D');
       }
       return;
     }
@@ -241,7 +280,7 @@
       return;
     }
     if (files.some(file => !acceptedExtensions.test(file.name))) {
-      toast('Format non accepté : utilisez image, PDF, document, ZIP, STL, OBJ, GLB ou GLTF');
+      toast('Format non accepté : utilisez une image, PDF, Word, Excel, TXT, CSV ou ZIP');
       return;
     }
 
@@ -265,6 +304,43 @@
         button.textContent = originalLabel;
       }
       toast(error.message || 'Impossible d’envoyer les documents');
+    }
+  });
+
+  modelInput.addEventListener('change', async () => {
+    const file = modelInput.files?.[0];
+    const part = data.parts.find(item => item.id === (targetPartId || selectedPartId));
+    if (!file || !part || !canEdit()) return;
+    if (!modelExtensions.test(file.name)) {
+      toast('Format 3D non accepté : utilisez STL, OBJ, GLB ou GLTF');
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      toast('Le modèle 3D doit faire au maximum 10 Mo');
+      return;
+    }
+    const legacyModel = (part.documents || []).find(item => fileIcon(item) === '3D');
+    const previous = part.model3d?.path ? part.model3d : legacyModel;
+    const button = document.querySelector(`[data-add-part-model="${CSS.escape(part.id)}"]`);
+    const originalLabel = button?.textContent;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Envoi du modèle 3D…';
+    }
+    try {
+      const uploaded = await window.MoldCloud.uploadAchatAttachment(`part-${part.id}-model`, file);
+      part.model3d = uploaded;
+      part.documents = (part.documents || []).filter(item => item.path !== previous?.path && fileIcon(item) !== '3D');
+      save();
+      render();
+      toast('Modèle 3D ajouté');
+      if (previous?.path && previous.path !== uploaded.path) window.MoldCloud.removeAchatAttachment(previous.path).catch(() => null);
+    } catch (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+      toast(error.message || 'Impossible d’envoyer le modèle 3D');
     }
   });
 })();
