@@ -534,9 +534,10 @@ window.MoldCloud = (() => {
     const safeOwner = String(ownerKey || 'achat').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = String(file.name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${session.user.id}/${safeOwner}/${Date.now()}-${safeName}`;
+    const is3d = /\.(stl|obj|glb|gltf)$/i.test(file.name || '');
     await request(`/storage/v1/object/achat-attachments/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
-      headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' },
+      headers: { 'Content-Type': is3d ? 'application/octet-stream' : (file.type || 'application/octet-stream'), 'x-upsert': 'false' },
       body: file
     });
     return { path: objectPath, name: file.name || 'Fichier', size: file.size || 0, type: file.type || 'application/octet-stream' };
