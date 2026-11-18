@@ -2,7 +2,7 @@
   const MAX_FILES = 5;
   const MAX_SIZE = 10 * 1024 * 1024;
   const acceptedExtensions = /\.(jpe?g|png|webp|pdf|docx?|xlsx?|txt|csv|zip)$/i;
-  const modelExtensions = /\.(stl|obj|glb|gltf)$/i;
+  const modelExtensions = /\.(stl|obj|glb|gltf|stp|step)$/i;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
@@ -18,7 +18,7 @@
     if (/\.docx?$/i.test(name)) return 'DOC';
     if (/\.xlsx?$/i.test(name)) return 'XLS';
     if (/\.zip$/i.test(name)) return 'ZIP';
-    if (/\.(stl|obj|glb|gltf)$/i.test(name)) return '3D';
+    if (/\.(stl|obj|glb|gltf|stp|step)$/i.test(name)) return '3D';
     return 'FILE';
   };
 
@@ -37,10 +37,10 @@
     const modelContent = model
       ? `<div class="part-model-card"><div class="part-model-card-icon">3D</div><div><b>${escapeHtml(model.name || 'Modèle 3D')}</b><small>${formatSize(model.size)} · ${escapeHtml(String(model.name || '').split('.').pop().toUpperCase())}</small></div><button type="button" data-open-part-document="${escapeHtml(model.path)}">Visualiser le modèle</button>${canEdit() ? `<button type="button" class="danger" data-delete-part-model="${escapeHtml(model.path)}">Supprimer</button>` : ''}</div>`
       : '<div class="empty">Aucun modèle 3D associé à cette pièce.</div>';
-    return `${html}<section class="card achat-attachments-card part-documents-card"><div class="card-head"><div><span class="section-kicker">DOCUMENTS ASSOCIÉS</span><h3>Documents de la pièce</h3><span class="sub">Photos, plans, fiches techniques, PDF, Word, Excel ou ZIP</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-documents="${escapeHtml(part.id)}">＋ Ajouter des documents</button>` : ''}</div>${list}</section><section class="card part-model-card-section"><div class="card-head"><div><span class="section-kicker">MODÈLE 3D</span><h3>Modèle 3D de la pièce</h3><span class="sub">STL, OBJ, GLB ou GLTF · rotation et zoom en ligne</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-model="${escapeHtml(part.id)}">${model ? '↻ Remplacer le modèle 3D' : '＋ Ajouter un modèle 3D'}</button>` : ''}</div>${modelContent}</section>`;
+    return `${html}<section class="card achat-attachments-card part-documents-card"><div class="card-head"><div><span class="section-kicker">DOCUMENTS ASSOCIÉS</span><h3>Documents de la pièce</h3><span class="sub">Photos, plans, fiches techniques, PDF, Word, Excel ou ZIP</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-documents="${escapeHtml(part.id)}">＋ Ajouter des documents</button>` : ''}</div>${list}</section><section class="card part-model-card-section"><div class="card-head"><div><span class="section-kicker">MODÈLE 3D</span><h3>Modèle 3D de la pièce</h3><span class="sub">STP, STEP, STL, OBJ, GLB ou GLTF · rotation et zoom en ligne</span></div>${canEdit() ? `<button type="button" class="primary" data-add-part-model="${escapeHtml(part.id)}">${model ? '↻ Remplacer le modèle 3D' : '＋ Ajouter un modèle 3D'}</button>` : ''}</div>${modelContent}</section>`;
   };
 
-  document.body.insertAdjacentHTML('beforeend', `<input type="file" id="partDocumentInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" hidden><input type="file" id="partModelInput" accept=".stl,.obj,.glb,.gltf" hidden><div class="part-document-viewer" id="partDocumentViewer" aria-hidden="true"><section class="part-document-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="partDocumentViewerTitle"><header><div><span class="section-kicker" id="partDocumentViewerEyebrow">LECTURE DU DOCUMENT</span><h3 id="partDocumentViewerTitle">Document associé</h3></div><div><span class="part-3d-help" id="part3dHelp">Glisser pour tourner · molette pour zoomer</span><a id="partDocumentViewerExternal" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a><button type="button" data-close-part-document-viewer aria-label="Fermer">×</button></div></header><div class="part-document-viewer-content" id="partDocumentViewerContent"></div></section></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<input type="file" id="partDocumentInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" hidden><input type="file" id="partModelInput" accept=".stp,.step,.stl,.obj,.glb,.gltf" hidden><div class="part-document-viewer" id="partDocumentViewer" aria-hidden="true"><section class="part-document-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="partDocumentViewerTitle"><header><div><span class="section-kicker" id="partDocumentViewerEyebrow">LECTURE DU DOCUMENT</span><h3 id="partDocumentViewerTitle">Document associé</h3></div><div><span class="part-3d-help" id="part3dHelp">Glisser pour tourner · molette pour zoomer</span><a id="partDocumentViewerExternal" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a><button type="button" data-close-part-document-viewer aria-label="Fermer">×</button></div></header><div class="part-document-viewer-content" id="partDocumentViewerContent"></div></section></div>`);
   const input = document.querySelector('#partDocumentInput');
   const modelInput = document.querySelector('#partModelInput');
   const viewer = document.querySelector('#partDocumentViewer');
@@ -113,6 +113,26 @@
       } else if (extension === 'obj') {
         model = await new OBJLoader().loadAsync(url);
         model.traverse(node => { if (node.isMesh) node.material = new THREE.MeshStandardMaterial({color:0x2d936c, metalness:.12, roughness:.62}); });
+      } else if (extension === 'stp' || extension === 'step') {
+        if (typeof window.occtimportjs !== 'function') throw new Error('Le lecteur STEP n’est pas disponible');
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Impossible de télécharger le fichier STEP');
+        const occt = await window.occtimportjs();
+        const result = occt.ReadStepFile(new Uint8Array(await response.arrayBuffer()), {linearUnit:'millimeter'});
+        if (!result?.success || !Array.isArray(result.meshes) || !result.meshes.length) throw new Error('Le fichier STEP ne contient aucun maillage lisible');
+        model = new THREE.Group();
+        result.meshes.forEach(meshData => {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(meshData.attributes.position.array, 3));
+          if (meshData.attributes.normal?.array) geometry.setAttribute('normal', new THREE.Float32BufferAttribute(meshData.attributes.normal.array, 3));
+          else geometry.computeVertexNormals();
+          geometry.setIndex(meshData.index.array);
+          const color = Array.isArray(meshData.color) ? new THREE.Color(...meshData.color) : new THREE.Color(0x2d936c);
+          const material = new THREE.MeshStandardMaterial({color, metalness:.18, roughness:.56, side:THREE.DoubleSide});
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.name = meshData.name || 'STEP mesh';
+          model.add(mesh);
+        });
       } else {
         const gltf = await new GLTFLoader().loadAsync(url);
         model = gltf.scene;
@@ -312,7 +332,7 @@
     const part = data.parts.find(item => item.id === (targetPartId || selectedPartId));
     if (!file || !part || !canEdit()) return;
     if (!modelExtensions.test(file.name)) {
-      toast('Format 3D non accepté : utilisez STL, OBJ, GLB ou GLTF');
+      toast('Format 3D non accepté : utilisez STP, STEP, STL, OBJ, GLB ou GLTF');
       return;
     }
     if (file.size > MAX_SIZE) {
