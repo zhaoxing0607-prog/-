@@ -52,11 +52,7 @@
   const form = document.getElementById('materialCalculatorForm');
   const lines = document.getElementById('materialCalculatorLines');
   const bandOptionsContainer = document.getElementById('materialBandOptions');
-  const linkedMoulds = part => {
-    const ids = new Set(part?.relatedMouldIds || []);
-    data.moulds.forEach(mould => { if ((mould.linkedPartIds || []).includes(part?.id)) ids.add(mould.id); });
-    return [...ids].map(id => data.moulds.find(mould => mould.id === id)).filter(Boolean);
-  };
+  const linkedMoulds = part => data.moulds.filter(mould => (mould.linkedPartIds || []).includes(part?.id));
   const partById = id => data.parts.find(part => part.id === id);
   const mouldById = id => data.moulds.find(mould => mould.id === id);
   const nextCalculationId = () => {
