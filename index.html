@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b2f24" />
   <title>Expedit ToolManager · Gestion des outillages</title>
-  <link rel="stylesheet" href="styles.css?v=20261118-part-document-viewer" />
+  <link rel="stylesheet" href="styles.css?v=20261122-project-tracking-3d" />
   <link rel="stylesheet" href="material-calculator.css?v=20261109-part-selection" />
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
   <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
@@ -17,10 +17,10 @@
     <nav id="nav">
       <button class="nav-item active" data-view="dashboard"><i>⌁</i>Tableau de bord</button>
       <button class="nav-item" data-view="mine"><i>◎</i>Lié à moi</button>
-      <button class="nav-item" data-view="notes"><i>✎</i>Mémo quotidien</button>
+      <button class="nav-item" data-view="notes" hidden aria-hidden="true"><i>✎</i>Mémo quotidien</button>
       <button class="nav-item" data-view="parts"><i>⚙</i>Catalogue de pièces</button>
       <button class="nav-item" data-view="moulds"><i>⬡</i>Parc de moules</button>
-      <button class="nav-item" data-view="projects"><i>▥</i>Projets de développement</button>
+      <button class="nav-item" data-view="projects"><i>▥</i>Suivi projets de développement</button>
       <button class="nav-item" data-view="repairs"><i>🔧</i>Pannes et réparations</button>
       <button class="nav-item" data-view="purchases"><i>▰</i>Achats</button>
       <button class="nav-item" data-view="reports"><i>▤</i>Rapports</button>
@@ -50,7 +50,7 @@
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
   <script src="cloud.js?v=20261009-project-log-pdf"></script>
   <script src="nomenclature-export.js?v=20261105-tool-parameters"></script>
-  <script src="app.js?v=20261119-mould-relations"></script>
+  <script src="app.js?v=20261122-project-tracking-mould-relations"></script>
   <script src="repair-list-cleanup.js?v=20260811-repair-list-no-cost"></script>
   <script src="repair-workflow.js?v=20260915-repair-actor-multi"></script>
   <script src="sertissage-project-workflow.js?v=20260814-mise-au-point"></script>
@@ -68,5 +68,7 @@
   <script src="tool-parameters-export.js?v=20261105"></script>
   <script src="repair-progress-status.js?v=20261109"></script>
   <script src="detail-back.js?v=20261016"></script>
+  <script src="project-timeline.js?v=20261122-comparison"></script>
+  <script src="project-costs.js?v=20261122-external-machining"></script>
 </body>
 </html>
