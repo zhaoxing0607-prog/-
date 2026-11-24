@@ -196,6 +196,13 @@
     }
     viewer.querySelector('[data-close-part-document-viewer]').focus();
   };
+  window.ToolDocumentViewer = {
+    open: async (url, file) => {
+      closeViewer();
+      await showViewer(url, file);
+    },
+    fileIcon
+  };
 
   document.addEventListener('click', async event => {
     const add = event.target.closest('[data-add-part-documents]');
