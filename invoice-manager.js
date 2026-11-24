@@ -1,5 +1,6 @@
 (() => {
   const MAX_SIZE = 10 * 1024 * 1024;
+  let invoiceLibraryOpen = false;
   const acceptedExtensions = /\.(pdf|jpe?g|png|webp)$/i;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -66,12 +67,24 @@
     return `<section class="card invoice-library-card"><div class="card-head"><div><span class="section-kicker">FACTURES</span><h3>Bibliothèque des factures</h3><span class="sub">Ajoutez les fichiers, puis associez-les aux achats concernés</span></div><div class="invoice-library-actions"><span>${invoices.length} fichier${invoices.length > 1 ? 's' : ''} · ${linkedCount} achat${linkedCount > 1 ? 's' : ''} lié${linkedCount > 1 ? 's' : ''}</span>${canEdit() ? '<button type="button" class="primary" data-add-invoices>＋ Ajouter des factures</button>' : ''}</div></div>${cards}</section>`;
   }
 
+  function invoiceLibraryLauncher() {
+    const invoices = ensureInvoices();
+    const linkedCount = data.purchases.filter(purchase => purchase.invoiceFileId).length;
+    return `<button type="button" class="card invoice-library-launcher" data-open-invoice-library><span class="invoice-library-launcher-icon">FAC</span><span class="invoice-library-launcher-copy"><span class="section-kicker">FACTURES</span><strong>Bibliothèque des factures</strong><small>Ouvrir le dossier, ajouter des factures et consulter les fichiers</small></span><span class="invoice-library-launcher-count"><b>${invoices.length}</b><small>fichier${invoices.length > 1 ? 's' : ''}</small></span><span class="invoice-library-launcher-linked">${linkedCount} achat${linkedCount > 1 ? 's' : ''} lié${linkedCount > 1 ? 's' : ''}</span><span class="invoice-library-launcher-action">Ouvrir</span></button>`;
+  }
+
+  function invoiceLibraryArchive() {
+    const invoices = ensureInvoices();
+    return `<div class="invoice-library-archive"><button type="button" class="back-btn invoice-library-back" data-close-invoice-library>Retour aux achats</button><section class="card invoice-library-archive-hero"><div><span class="section-kicker">ARCHIVES DES FACTURES</span><h2>Fichiers de factures</h2><p>Ajoutez vos factures, consultez-les en ligne et associez-les aux achats correspondants.</p></div><span class="invoice-library-archive-badge">${invoices.length} fichier${invoices.length > 1 ? 's' : ''}</span></section>${invoiceLibrarySection()}</div>`;
+  }
+
   const listPageBeforeInvoices = listPage;
   listPage = type => {
+    if (type !== 'purchases') return listPageBeforeInvoices(type);
+    if (invoiceLibraryOpen) return invoiceLibraryArchive();
     const html = listPageBeforeInvoices(type);
-    if (type !== 'purchases') return html;
-    const section = invoiceLibrarySection();
-    return html.includes('<div class="toolbar">') ? html.replace('<div class="toolbar">', `${section}<div class="toolbar">`) : `${section}${html}`;
+    const launcher = invoiceLibraryLauncher();
+    return html.includes('<div class="toolbar">') ? html.replace('<div class="toolbar">', `${launcher}<div class="toolbar">`) : `${launcher}${html}`;
   };
 
   const purchaseRowBeforeInvoices = defs.purchases.row;
@@ -138,6 +151,16 @@
   }
 
   document.addEventListener('click', async event => {
+    if (event.target.closest('[data-open-invoice-library]')) {
+      invoiceLibraryOpen = true;
+      render();
+      return;
+    }
+    if (event.target.closest('[data-close-invoice-library]')) {
+      invoiceLibraryOpen = false;
+      render();
+      return;
+    }
     if (event.target.closest('[data-add-invoices]')) {
       if (!canEdit()) return;
       input.value = '';
@@ -175,6 +198,10 @@
       toast(error.message || 'Impossible de supprimer la facture');
     }
   });
+  document.addEventListener('click', event => {
+    const navigation = event.target.closest('[data-view]');
+    if (navigation && navigation.dataset.view !== 'purchases') invoiceLibraryOpen = false;
+  }, true);
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && viewer.classList.contains('open')) closeViewer();
   });
