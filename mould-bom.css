@@ -16,6 +16,9 @@
 .bom-file-button span{display:grid;flex:0 0 30px;height:30px;place-items:center;border-radius:7px;background:#f6dfdb;color:#a33d31;font-size:9px;font-weight:900}
 .bom-file-button.is-3d span{background:#e8e0f4;color:#68408f}
 .bom-file-button b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.bom-file-cell{display:flex;align-items:center;gap:5px}
+.bom-file-delete{display:grid;flex:0 0 28px;width:28px;height:28px;place-items:center;border:0;border-radius:7px;background:#f7e2de;color:#a13b31;font-size:17px;font-weight:800;cursor:pointer}
+.bom-file-delete:hover{background:#efc9c2}
 .bom-no-file{color:#98a29d}
 .bom-row-actions{display:flex;gap:6px}
 .bom-row-actions button{border:0;border-radius:7px;padding:7px 9px;background:#e4f0e9;color:var(--green);font-size:9px;font-weight:800;cursor:pointer}

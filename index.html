@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="material-calculator.css?v=20261109-part-selection" />
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
   <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
   <script src="config.js?v=20260806-1532"></script>
 </head>
 <body>
@@ -50,7 +51,7 @@
     <section class="modal ticket-modal"><div class="modal-head"><div><span class="eyebrow" id="pressProjectTicketEyebrow">DEMANDE DE PROJET</span><h2 id="pressProjectTicketTitle">Créer un ticket projet</h2></div><button class="close-btn" id="closePressProjectTicketModal" type="button" title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="pressProjectTicketForm"><div class="form-grid"><div class="field full"><label>Nom du projet</label><input name="projectName" required maxlength="160" placeholder="Ex. Nouvel outillage ou équipement"></div><div class="field"><label>Client</label><input name="customer" maxlength="120" placeholder="Facultatif"></div><div class="field"><label>Priorité</label><select name="priority" required><option>Normal</option><option>Élevé</option><option>Urgent</option></select></div><div class="field full"><label>Description / besoin</label><textarea name="description" required maxlength="3000" placeholder="Décrivez le besoin, les travaux attendus et les contraintes…"></textarea></div><div class="field full"><label>Demandeur</label><input id="pressProjectTicketRequester" readonly></div><div class="ticket-form-error full" id="pressProjectTicketFormError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" id="cancelPressProjectTicketModal">Annuler</button><button type="submit" class="primary" id="pressProjectTicketSubmit">Envoyer la demande</button></div></form></section>
   </div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
-  <script src="cloud.js?v=20261009-project-log-pdf"></script>
+  <script src="cloud.js?v=20261124-resumable-upload"></script>
   <script src="nomenclature-export.js?v=20261105-tool-parameters"></script>
   <script src="app.js?v=20261122-project-tracking-mould-relations"></script>
   <script src="repair-list-cleanup.js?v=20260811-repair-list-no-cost"></script>
@@ -74,6 +75,6 @@
   <script src="project-costs.js?v=20261122-external-machining"></script>
   <script src="project-attachments.js?v=20261123"></script>
   <script src="invoice-manager.js?v=20261124-invoice-archive"></script>
-  <script src="mould-bom.js?v=20261124-stp-upload"></script>
+  <script src="mould-bom.js?v=20261124-resumable-delete"></script>
 </body>
 </html>

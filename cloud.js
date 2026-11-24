@@ -528,19 +528,56 @@ window.MoldCloud = (() => {
     return signed?.signedURL ? `${config.supabaseUrl}/storage/v1${signed.signedURL}` : '';
   }
 
-  async function uploadAchatAttachment(ownerKey, file) {
+  async function uploadAchatAttachment(ownerKey, file, onProgress = null) {
     if (!enabled || !session || !member?.active) throw new Error('Connexion requise pour ajouter un fichier');
     if (!file) throw new Error('Aucun fichier sélectionné');
     const safeOwner = String(ownerKey || 'achat').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = String(file.name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${session.user.id}/${safeOwner}/${Date.now()}-${safeName}`;
     const is3d = /\.(stl|obj|glb|gltf|stp|step)$/i.test(file.name || '');
+    const contentType = is3d ? 'application/octet-stream' : (file.type || 'application/octet-stream');
+    if (file.size > 6 * 1024 * 1024 && window.tus?.Upload) {
+      const baseUrl = new URL(config.supabaseUrl);
+      const directHost = baseUrl.hostname.endsWith('.supabase.co')
+        ? baseUrl.hostname.replace('.supabase.co', '.storage.supabase.co')
+        : baseUrl.hostname;
+      const endpoint = `${baseUrl.protocol}//${directHost}/storage/v1/upload/resumable`;
+      await new Promise((resolve, reject) => {
+        const upload = new window.tus.Upload(file, {
+          endpoint,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+            apikey: config.supabaseKey,
+            'x-upsert': 'false'
+          },
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          metadata: {
+            bucketName: 'achat-attachments',
+            objectName: objectPath,
+            contentType,
+            cacheControl: '3600'
+          },
+          chunkSize: 6 * 1024 * 1024,
+          onError: reject,
+          onProgress: (bytesUploaded, bytesTotal) => onProgress?.(bytesUploaded, bytesTotal),
+          onSuccess: resolve
+        });
+        upload.findPreviousUploads().then(previousUploads => {
+          if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0]);
+          upload.start();
+        }).catch(reject);
+      });
+      return { path: objectPath, name: file.name || 'Fichier', size: file.size || 0, type: contentType };
+    }
     await request(`/storage/v1/object/achat-attachments/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
-      headers: { 'Content-Type': is3d ? 'application/octet-stream' : (file.type || 'application/octet-stream'), 'x-upsert': 'false' },
+      headers: { 'Content-Type': contentType, 'x-upsert': 'false' },
       body: file
     });
-    return { path: objectPath, name: file.name || 'Fichier', size: file.size || 0, type: file.type || 'application/octet-stream' };
+    onProgress?.(file.size || 1, file.size || 1);
+    return { path: objectPath, name: file.name || 'Fichier', size: file.size || 0, type: contentType };
   }
 
   async function removeAchatAttachment(objectPath) {

@@ -19,6 +19,9 @@
   const fileButton = (file, kind) => file?.path
     ? `<button type="button" class="bom-file-button ${kind === '3d' ? 'is-3d' : ''}" data-open-bom-file="${escapeHtml(file.path)}"><span>${kind === '3d' ? '3D' : '2D'}</span><b title="${escapeHtml(file.name || 'Fichier')}">${escapeHtml(file.name || 'Fichier')}</b></button>`
     : '<span class="bom-no-file">—</span>';
+  const fileCell = (file, kind, componentId) => file?.path
+    ? `<div class="bom-file-cell">${fileButton(file, kind)}${canEdit() ? `<button type="button" class="bom-file-delete" data-delete-bom-file="${escapeHtml(componentId)}" data-bom-file-kind="${kind}" title="Supprimer le fichier ${kind.toUpperCase()}" aria-label="Supprimer le fichier ${kind.toUpperCase()}">×</button>` : ''}</div>`
+    : '<span class="bom-no-file">—</span>';
 
   const baseMouldDashboard = mouldDashboard;
   mouldDashboard = () => {
@@ -31,8 +34,8 @@
       <td>${escapeHtml(component.material || '—')}</td>
       <td>${component.heatTreated ? '<span class="bom-heat yes">Oui</span>' : '<span class="bom-heat">Non</span>'}</td>
       <td>${escapeHtml(component.heatTreated && component.hardness ? component.hardness : '—')}</td>
-      <td>${fileButton(component.drawing2d, '2d')}</td>
-      <td>${fileButton(component.model3d, '3d')}</td>
+      <td>${fileCell(component.drawing2d, '2d', component.id)}</td>
+      <td>${fileCell(component.model3d, '3d', component.id)}</td>
       <td>${canEdit() ? `<div class="bom-row-actions"><button type="button" data-edit-bom-component="${escapeHtml(component.id)}">Modifier</button><button type="button" class="danger" data-delete-bom-component="${escapeHtml(component.id)}">Supprimer</button></div>` : ''}</td>
     </tr>`).join('') : '<tr><td colspan="7"><div class="bom-empty">Aucun composant dans la nomenclature de ce moule.</div></td></tr>';
     return `${html}<section class="card mould-bom-card"><div class="card-head"><div><span class="section-kicker">NOMENCLATURE OUTILLAGE</span><h3>BOM · Composants du moule</h3><span class="sub">Caractéristiques, plans 2D et modèles 3D de chaque composant</span></div><div class="bom-head-actions"><span>${components.length} composant${components.length > 1 ? 's' : ''}</span>${canEdit() ? '<button type="button" class="primary" data-add-bom-component>＋ Ajouter un composant</button>' : ''}</div></div><div class="bom-table-wrap"><table class="bom-table"><thead><tr><th>Composant</th><th>Matière</th><th>Traitement thermique</th><th>Dureté</th><th>Plan 2D</th><th>Fichier 3D</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
@@ -119,6 +122,27 @@
       }
       return;
     }
+    const deleteFile = event.target.closest('[data-delete-bom-file]');
+    if (deleteFile && canEdit()) {
+      const mould = data.moulds.find(item => item.id === selectedMouldId);
+      const component = mould && bomFor(mould).find(item => item.id === deleteFile.dataset.deleteBomFile);
+      const kind = deleteFile.dataset.bomFileKind;
+      const key = kind === '3d' ? 'model3d' : 'drawing2d';
+      const file = component?.[key];
+      if (!file?.path || !confirm(`Supprimer le fichier ${kind.toUpperCase()} ${file.name || ''} ?`)) return;
+      deleteFile.disabled = true;
+      try {
+        await window.MoldCloud.removeAchatAttachment(file.path);
+        component[key] = null;
+        save();
+        render();
+        toast(`Fichier ${kind.toUpperCase()} supprimé`);
+      } catch (error) {
+        deleteFile.disabled = false;
+        toast(error.message || `Impossible de supprimer le fichier ${kind.toUpperCase()}`);
+      }
+      return;
+    }
     const remove = event.target.closest('[data-delete-bom-component]');
     if (!remove || !canEdit()) return;
     const mould = data.moulds.find(item => item.id === selectedMouldId);
@@ -163,12 +187,16 @@
       let drawing2d = existing?.drawing2d || null;
       let model3d = existing?.model3d || null;
       const owner = `mould-${mould.id}-bom-${existing?.id || nextComponentId(mould)}`;
+      const showProgress = label => (uploadedBytes, totalBytes) => {
+        const percent = Math.min(100, Math.round(uploadedBytes / Math.max(totalBytes, 1) * 100));
+        submit.textContent = `Envoi ${label} · ${percent} %`;
+      };
       if (drawingFile) {
-        drawing2d = await window.MoldCloud.uploadAchatAttachment(`${owner}-2d`, drawingFile);
+        drawing2d = await window.MoldCloud.uploadAchatAttachment(`${owner}-2d`, drawingFile, showProgress('2D'));
         uploaded.push(drawing2d);
       }
       if (modelFile) {
-        model3d = await window.MoldCloud.uploadAchatAttachment(`${owner}-3d`, modelFile);
+        model3d = await window.MoldCloud.uploadAchatAttachment(`${owner}-3d`, modelFile, showProgress('3D'));
         uploaded.push(model3d);
       }
       const component = {
