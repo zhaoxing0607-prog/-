@@ -26,7 +26,7 @@
     const purchase = data.purchases.find(item => item.id === selectedPurchaseId);
     if (!purchase) return basePurchaseDashboard();
     ensurePurchaseTracking(purchase);
-    return basePurchaseDashboard() + purchaseJournalSection(purchase);
+    return basePurchaseDashboard();
   };
 
   function openPurchaseLog(purchaseId, logId = '') {

@@ -189,8 +189,6 @@
     const purchase = data.purchases.find(item => item.id === selectedPurchaseId);
     const html = basePurchaseDashboard();
     if (!purchase) return html;
-    const files = Array.isArray(purchase.attachments) ? purchase.attachments : [];
-    const content = files.length ? `<div class="achat-attachment-card-list">${files.map(file => `<div class="achat-attachment-file"><span class="achat-file-icon">${fileIcon(file)}</span><div><b>${escapeHtml(file.name || 'Fichier')}</b><small>${formatSize(file.size)}</small></div><button type="button" data-open-achat-attachment="${escapeHtml(file.path)}">Ouvrir / télécharger</button>${canEdit() ? `<button type="button" class="danger" data-delete-purchase-attachment="${escapeHtml(file.path)}">Supprimer</button>` : ''}</div>`).join('')}</div>` : '<div class="empty">Aucune pièce jointe associée à cet achat.</div>';
-    return `${html}<section class="card achat-attachments-card"><div class="card-head"><div><span class="section-kicker">PIÈCES JOINTES</span><h3>Documents de l’achat</h3><span class="sub">Photos, plans, devis, PDF ou fichiers techniques</span></div>${canEdit() ? `<button type="button" class="primary" data-edit="${purchase.id}" data-type="purchases">＋ Ajouter des fichiers</button>` : ''}</div>${content}</section>`;
+    return html;
   };
 })();
