@@ -6,7 +6,7 @@ values (
   'achat-attachments',
   'achat-attachments',
   false,
-  10485760,
+  52428800,
   array[
     'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
     'application/msword',
@@ -19,7 +19,7 @@ values (
 )
 on conflict (id) do update
 set public = false,
-    file_size_limit = 10485760,
+    file_size_limit = 52428800,
     allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "members view achat attachments" on storage.objects;

@@ -27,5 +27,6 @@
 .bom-file-field{padding:12px;border:1px solid #e1e9e4;border-radius:10px;background:#f7faf8}
 .bom-file-field input{background:#fff}
 .bom-file-field small{color:var(--muted);font-size:10px}
+.bom-file-field small.error{color:#b23f32;font-weight:800}
 #mouldBomError{min-height:18px;color:#b23f32;font-size:11px;font-weight:700}
 @media(max-width:720px){.mould-bom-card{padding:18px}.mould-bom-card .card-head,.bom-head-actions{align-items:flex-start;flex-direction:column}}

@@ -1,5 +1,5 @@
 (() => {
-  const MAX_FILE_SIZE = 40 * 1024 * 1024;
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
   const drawingExtensions = /\.(pdf|jpe?g|png|webp)$/i;
   const modelExtensions = /\.(stl|obj|glb|gltf|stp|step)$/i;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -38,7 +38,7 @@
     return `${html}<section class="card mould-bom-card"><div class="card-head"><div><span class="section-kicker">NOMENCLATURE OUTILLAGE</span><h3>BOM · Composants du moule</h3><span class="sub">Caractéristiques, plans 2D et modèles 3D de chaque composant</span></div><div class="bom-head-actions"><span>${components.length} composant${components.length > 1 ? 's' : ''}</span>${canEdit() ? '<button type="button" class="primary" data-add-bom-component>＋ Ajouter un composant</button>' : ''}</div></div><div class="bom-table-wrap"><table class="bom-table"><thead><tr><th>Composant</th><th>Matière</th><th>Traitement thermique</th><th>Dureté</th><th>Plan 2D</th><th>Fichier 3D</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   };
 
-  document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="mouldBomBackdrop"><section class="modal bom-component-modal"><div class="modal-head"><div><span class="eyebrow" id="mouldBomEyebrow">NOUVEAU COMPOSANT</span><h2 id="mouldBomTitle">Ajouter un composant</h2></div><button class="close-btn" type="button" data-close-bom-modal title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="mouldBomForm"><div class="form-grid"><div class="field full"><label>Nom du composant</label><input name="name" required maxlength="160" placeholder="Ex. Poinçon, matrice, éjecteur…"></div><div class="field"><label>Matière</label><input name="material" maxlength="100" placeholder="Ex. 1.2379, 42CrMo4…"></div><div class="field"><label class="bom-checkbox-label"><input name="heatTreated" type="checkbox"> Traitement thermique</label></div><div class="field"><label>Dureté</label><input name="hardness" maxlength="80" placeholder="Ex. 58–60 HRC"></div><div class="field full bom-file-field"><label>Plan 2D</label><input name="drawing2d" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"><small id="bomDrawingCurrent">PDF, JPG, PNG ou WEBP · 40 Mo maximum</small></div><div class="field full bom-file-field"><label>Fichier 3D</label><input name="model3d" type="file" accept=".stp,.step,.stl,.obj,.glb,.gltf"><small id="bomModelCurrent">STP, STEP, STL, OBJ, GLB ou GLTF · 40 Mo maximum</small></div><div class="ticket-form-error full" id="mouldBomError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" data-close-bom-modal>Annuler</button><button type="submit" class="primary">Enregistrer le composant</button></div></form></section></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="mouldBomBackdrop"><section class="modal bom-component-modal"><div class="modal-head"><div><span class="eyebrow" id="mouldBomEyebrow">NOUVEAU COMPOSANT</span><h2 id="mouldBomTitle">Ajouter un composant</h2></div><button class="close-btn" type="button" data-close-bom-modal title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="mouldBomForm"><div class="form-grid"><div class="field full"><label>Nom du composant</label><input name="name" required maxlength="160" placeholder="Ex. Poinçon, matrice, éjecteur…"></div><div class="field"><label>Matière</label><input name="material" maxlength="100" placeholder="Ex. 1.2379, 42CrMo4…"></div><div class="field"><label class="bom-checkbox-label"><input name="heatTreated" type="checkbox"> Traitement thermique</label></div><div class="field"><label>Dureté</label><input name="hardness" maxlength="80" placeholder="Ex. 58–60 HRC"></div><div class="field full bom-file-field"><label>Plan 2D</label><input name="drawing2d" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"><small id="bomDrawingCurrent">PDF, JPG, PNG ou WEBP · 50 Mo maximum</small></div><div class="field full bom-file-field"><label>Fichier 3D</label><input name="model3d" type="file" accept=".stp,.step,.stl,.obj,.glb,.gltf,application/step,application/octet-stream"><small id="bomModelCurrent">STP, STEP, STL, OBJ, GLB ou GLTF · 50 Mo maximum</small></div><div class="ticket-form-error full" id="mouldBomError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" data-close-bom-modal>Annuler</button><button type="submit" class="primary">Enregistrer le composant</button></div></form></section></div>`);
 
   const backdrop = document.querySelector('#mouldBomBackdrop');
   const form = document.querySelector('#mouldBomForm');
@@ -67,8 +67,8 @@
     form.elements.namedItem('material').value = component?.material || '';
     form.elements.namedItem('heatTreated').checked = Boolean(component?.heatTreated);
     form.elements.namedItem('hardness').value = component?.hardness || '';
-    document.querySelector('#bomDrawingCurrent').textContent = component?.drawing2d?.name ? `Fichier actuel : ${component.drawing2d.name} · choisissez un fichier pour le remplacer` : 'PDF, JPG, PNG ou WEBP · 40 Mo maximum';
-    document.querySelector('#bomModelCurrent').textContent = component?.model3d?.name ? `Fichier actuel : ${component.model3d.name} · choisissez un fichier pour le remplacer` : 'STP, STEP, STL, OBJ, GLB ou GLTF · 40 Mo maximum';
+    document.querySelector('#bomDrawingCurrent').textContent = component?.drawing2d?.name ? `Fichier actuel : ${component.drawing2d.name} · choisissez un fichier pour le remplacer` : 'PDF, JPG, PNG ou WEBP · 50 Mo maximum';
+    document.querySelector('#bomModelCurrent').textContent = component?.model3d?.name ? `Fichier actuel : ${component.model3d.name} · choisissez un fichier pour le remplacer` : 'STP, STEP, STL, OBJ, GLB ou GLTF · 50 Mo maximum';
     errorBox.textContent = '';
     syncHardness();
     backdrop.classList.add('open');
@@ -76,6 +76,14 @@
   };
 
   form.elements.namedItem('heatTreated').addEventListener('change', syncHardness);
+  ['drawing2d', 'model3d'].forEach(name => form.elements.namedItem(name).addEventListener('change', event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const size = `${(file.size / 1024 / 1024).toFixed(1)} Mo`;
+    const help = document.querySelector(name === 'drawing2d' ? '#bomDrawingCurrent' : '#bomModelCurrent');
+    help.textContent = `${file.name} · ${size}${file.size > MAX_FILE_SIZE ? ' · fichier trop volumineux' : ' · prêt à envoyer'}`;
+    help.classList.toggle('error', file.size > MAX_FILE_SIZE);
+  }));
   document.addEventListener('click', async event => {
     if (event.target.closest('[data-add-bom-component]')) {
       openModal(null);
@@ -146,7 +154,7 @@
     errorBox.textContent = '';
     if (drawingFile && !drawingExtensions.test(drawingFile.name)) return void (errorBox.textContent = 'Plan 2D : utilisez PDF, JPG, PNG ou WEBP.');
     if (modelFile && !modelExtensions.test(modelFile.name)) return void (errorBox.textContent = 'Fichier 3D : utilisez STP, STEP, STL, OBJ, GLB ou GLTF.');
-    if ([drawingFile, modelFile].filter(Boolean).some(file => file.size > MAX_FILE_SIZE)) return void (errorBox.textContent = 'Chaque fichier doit faire au maximum 40 Mo.');
+    if ([drawingFile, modelFile].filter(Boolean).some(file => file.size > MAX_FILE_SIZE)) return void (errorBox.textContent = 'Chaque fichier doit faire au maximum 50 Mo.');
     const submit = form.querySelector('[type="submit"]');
     submit.disabled = true;
     submit.textContent = drawingFile || modelFile ? 'Envoi des fichiers…' : 'Enregistrement…';
@@ -182,7 +190,10 @@
       toast(existing ? 'Composant modifié' : 'Composant ajouté au BOM');
     } catch (error) {
       await Promise.all(uploaded.map(file => window.MoldCloud.removeAchatAttachment(file.path).catch(() => null)));
-      errorBox.textContent = error.message || 'Impossible d’enregistrer le composant.';
+      const message = error.message || 'Impossible d’enregistrer le composant.';
+      errorBox.textContent = /maximum allowed size|exceeded|max.*size|too large|payload/i.test(message)
+        ? 'Le fichier dépasse la limite actuelle du stockage cloud. La limite doit être réglée à 50 Mo dans Supabase.'
+        : message;
     } finally {
       submit.disabled = false;
       submit.textContent = 'Enregistrer le composant';
