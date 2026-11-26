@@ -47,11 +47,12 @@
     none.textContent = 'Aucun fichier de facture associé';
     select.prepend(none);
     select.required = false;
+    select.disabled = !window.MoldCloud?.canManageAttachments();
     select.value = record?.invoiceFileId || '';
   };
 
   $('#entityForm').addEventListener('change', event => {
-    if (event.target.name !== 'invoiceFileId' || !event.target.value) return;
+    if (event.target.name !== 'invoiceFileId' || !event.target.value || !window.MoldCloud?.canManageAttachments()) return;
     const invoice = ensureInvoices().find(item => item.id === event.target.value);
     const number = $('#entityForm').elements.namedItem('invoiceNumber');
     if (invoice && number && !number.value.trim()) number.value = invoice.id;
@@ -62,9 +63,9 @@
     const linkedCount = data.purchases.filter(purchase => purchase.invoiceFileId).length;
     const cards = invoices.length ? `<div class="invoice-library-grid">${invoices.map(invoice => {
       const linked = assignedPurchases(invoice.id);
-      return `<article class="invoice-library-item"><span class="invoice-library-icon">${/\.pdf$/i.test(invoice.name || '') ? 'PDF' : 'IMG'}</span><div class="invoice-library-info"><span>${escapeHtml(invoice.id)}</span><b title="${escapeHtml(invoice.name || 'Facture')}">${escapeHtml(invoice.name || 'Facture')}</b><small>${formatSize(invoice.size)} · Ajoutée le ${escapeHtml(invoice.createdAt || '—')}</small><div class="invoice-purchase-links">${linked.length ? linked.map(purchase => `<button type="button" data-purchase-link="${escapeHtml(purchase.id)}">${escapeHtml(purchase.id)}</button>`).join('') : '<em>Non associée</em>'}</div></div><button type="button" class="invoice-open-button" data-open-invoice="${escapeHtml(invoice.id)}">Lire</button>${canEdit() ? `<button type="button" class="invoice-delete-button" data-delete-invoice="${escapeHtml(invoice.id)}">Supprimer</button>` : ''}</article>`;
+      return `<article class="invoice-library-item"><span class="invoice-library-icon">${/\.pdf$/i.test(invoice.name || '') ? 'PDF' : 'IMG'}</span><div class="invoice-library-info"><span>${escapeHtml(invoice.id)}</span><b title="${escapeHtml(invoice.name || 'Facture')}">${escapeHtml(invoice.name || 'Facture')}</b><small>${formatSize(invoice.size)} · Ajoutée le ${escapeHtml(invoice.createdAt || '—')}</small><div class="invoice-purchase-links">${linked.length ? linked.map(purchase => `<button type="button" data-purchase-link="${escapeHtml(purchase.id)}">${escapeHtml(purchase.id)}</button>`).join('') : '<em>Non associée</em>'}</div></div><button type="button" class="invoice-open-button" data-open-invoice="${escapeHtml(invoice.id)}">Lire</button>${window.MoldCloud?.canManageAttachments() ? `<button type="button" class="invoice-delete-button" data-delete-invoice="${escapeHtml(invoice.id)}">Supprimer</button>` : ''}</article>`;
     }).join('')}</div>` : '<div class="invoice-library-empty">Aucune facture enregistrée. Ajoutez un PDF ou une image de facture.</div>';
-    return `<section class="card invoice-library-card"><div class="card-head"><div><span class="section-kicker">FACTURES</span><h3>Bibliothèque des factures</h3><span class="sub">Ajoutez les fichiers, puis associez-les aux achats concernés</span></div><div class="invoice-library-actions"><span>${invoices.length} fichier${invoices.length > 1 ? 's' : ''} · ${linkedCount} achat${linkedCount > 1 ? 's' : ''} lié${linkedCount > 1 ? 's' : ''}</span>${canEdit() ? '<button type="button" class="primary" data-add-invoices>＋ Ajouter des factures</button>' : ''}</div></div>${cards}</section>`;
+    return `<section class="card invoice-library-card"><div class="card-head"><div><span class="section-kicker">FACTURES</span><h3>Bibliothèque des factures</h3><span class="sub">Ajoutez les fichiers, puis associez-les aux achats concernés</span></div><div class="invoice-library-actions"><span>${invoices.length} fichier${invoices.length > 1 ? 's' : ''} · ${linkedCount} achat${linkedCount > 1 ? 's' : ''} lié${linkedCount > 1 ? 's' : ''}</span>${window.MoldCloud?.canManageAttachments() ? '<button type="button" class="primary" data-add-invoices>＋ Ajouter des factures</button>' : ''}</div></div>${cards}</section>`;
   }
 
   function invoiceLibraryLauncher() {
@@ -162,7 +163,7 @@
       return;
     }
     if (event.target.closest('[data-add-invoices]')) {
-      if (!canEdit()) return;
+      if (!window.MoldCloud?.canManageAttachments()) return;
       input.value = '';
       input.click();
       return;
@@ -179,7 +180,7 @@
       return;
     }
     const remove = event.target.closest('[data-delete-invoice]');
-    if (!remove || !canEdit()) return;
+    if (!remove || !window.MoldCloud?.canManageAttachments()) return;
     const invoice = ensureInvoices().find(item => item.id === remove.dataset.deleteInvoice);
     if (!invoice) return;
     const linked = assignedPurchases(invoice.id);
@@ -208,7 +209,7 @@
 
   input.addEventListener('change', async () => {
     const files = [...(input.files || [])];
-    if (!files.length || !canEdit()) return;
+    if (!files.length || !window.MoldCloud?.canManageAttachments()) return;
     if (files.some(file => file.size > MAX_SIZE)) return toast('Chaque facture doit faire au maximum 10 Mo');
     if (files.some(file => !acceptedExtensions.test(file.name))) return toast('Format accepté : PDF, JPG, PNG ou WEBP');
     const button = document.querySelector('[data-add-invoices]');

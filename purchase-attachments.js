@@ -51,7 +51,7 @@
     form._achatAttachmentPrepared = false;
     form._achatAttachmentKind = kind;
     const hiddenName = kind === 'purchase' ? 'purchaseAttachmentData' : 'achatTicketAttachmentData';
-    const field = `<div class="field full achat-attachment-field"><div class="achat-attachment-label"><label>Pièces jointes <span class="optional-label">(facultatif)</span></label><span class="achat-attachment-count">0 / ${MAX_FILES}</span></div><div class="achat-attachment-editor"></div><input class="achat-attachment-input" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"><small>Images, PDF, Word, Excel, texte ou ZIP · ${MAX_FILES} fichiers maximum · 10 Mo par fichier.</small><input type="hidden" name="${hiddenName}" value="[]"><div class="ticket-form-error achat-attachment-error" role="alert"></div></div>`;
+    const field = `<div class="field full achat-attachment-field" ${window.MoldCloud?.canManageAttachments() ? '': 'style="display:none"'}><div class="achat-attachment-label"><label>Pièces jointes <span class="optional-label">(facultatif)</span></label><span class="achat-attachment-count">0 / ${MAX_FILES}</span></div><div class="achat-attachment-editor"></div><input class="achat-attachment-input" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"><small>Images, PDF, Word, Excel, texte ou ZIP · ${MAX_FILES} fichiers maximum · 10 Mo par fichier.</small><input type="hidden" name="${hiddenName}" value="[]"><div class="ticket-form-error achat-attachment-error" role="alert"></div></div>`;
     if (kind === 'purchase') document.querySelector('#formFields')?.insertAdjacentHTML('beforeend', field);
     else form.querySelector('.ticket-form-error')?.insertAdjacentHTML('beforebegin', field);
     renderEditor(form);
@@ -71,7 +71,7 @@
 
   document.addEventListener('change', event => {
     const input = event.target.closest('.achat-attachment-input');
-    if (!input) return;
+    if (!input || !window.MoldCloud?.canManageAttachments()) return;
     const form = input.closest('form');
     const incoming = [...input.files];
     const retainedCount = (form._achatAttachmentOriginal || []).filter(file => !form._achatAttachmentRemoved.has(file.path)).length;
@@ -96,6 +96,7 @@
   document.addEventListener('click', async event => {
     const removeExisting = event.target.closest('[data-remove-existing-achat-attachment]');
     if (removeExisting) {
+      if (!window.MoldCloud?.canManageAttachments()) return;
       const form = removeExisting.closest('form');
       form._achatAttachmentRemoved.add(removeExisting.dataset.removeExistingAchatAttachment);
       renderEditor(form);
@@ -110,16 +111,14 @@
     }
     const open = event.target.closest('[data-open-achat-attachment]');
     if (open) {
-      const popup = window.open('about:blank', '_blank');
-      if (popup) popup.opener = null;
+      const path = open.dataset.openAchatAttachment;
+      const file = {name:open.title || path.split('/').pop(), path};
       open.disabled = true;
       try {
-        const url = await window.MoldCloud.achatAttachmentUrl(open.dataset.openAchatAttachment);
+        const url = await window.MoldCloud.achatAttachmentUrl(path);
         if (!url) throw new Error('Fichier introuvable');
-        if (popup) popup.location.replace(url);
-        else window.location.href = url;
+        await window.ToolDocumentViewer.open(url, file);
       } catch (error) {
-        popup?.close();
         toast(error.message || 'Impossible d’ouvrir le fichier');
       } finally {
         open.disabled = false;
@@ -130,7 +129,7 @@
     if (removePurchase) {
       const purchase = data.purchases.find(item => item.id === selectedPurchaseId);
       const path = removePurchase.dataset.deletePurchaseAttachment;
-      if (!purchase || !canEdit() || !confirm('Supprimer définitivement ce fichier ?')) return;
+      if (!purchase || !window.MoldCloud?.canManageAttachments() || !confirm('Supprimer définitivement ce fichier ?')) return;
       removePurchase.disabled = true;
       try {
         await window.MoldCloud.removeAchatAttachment(path);
@@ -150,8 +149,9 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!canEdit() && form._achatAttachmentKind === 'purchase') return;
-    const pending = form._achatAttachmentPending || [];
-    const retained = (form._achatAttachmentOriginal || []).filter(file => !form._achatAttachmentRemoved.has(file.path));
+    const manager = window.MoldCloud?.canManageAttachments();
+    const pending = manager ? form._achatAttachmentPending || [] : [];
+    const retained = (form._achatAttachmentOriginal || []).filter(file => !manager || !form._achatAttachmentRemoved.has(file.path));
     const submit = form.querySelector('[type="submit"]');
     const originalText = submit.textContent;
     const error = form.querySelector('.achat-attachment-error');

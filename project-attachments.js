@@ -29,9 +29,9 @@
     if (!project) return html;
     const files = Array.isArray(project.documents) ? project.documents.filter(file => file?.path) : [];
     const fileList = files.length
-      ? `<div class="project-document-list">${files.map(file => `<article class="project-document-item"><span class="project-document-icon type-${fileIcon(file).toLowerCase()}">${fileIcon(file)}</span><div><b>${escapeHtml(file.name || 'Document')}</b><small>${formatSize(file.size)} · ${escapeHtml(fileIcon(file))}</small></div><button type="button" data-open-project-document="${escapeHtml(file.path)}">Ouvrir</button>${canEdit() ? `<button type="button" class="danger" data-delete-project-document="${escapeHtml(file.path)}">Supprimer</button>` : ''}</article>`).join('')}</div>`
+      ? `<div class="project-document-list">${files.map(file => `<article class="project-document-item"><span class="project-document-icon type-${fileIcon(file).toLowerCase()}">${fileIcon(file)}</span><div><b>${escapeHtml(file.name || 'Document')}</b><small>${formatSize(file.size)} · ${escapeHtml(fileIcon(file))}</small></div><button type="button" data-open-project-document="${escapeHtml(file.path)}">Ouvrir</button>${window.MoldCloud?.canManageAttachments() ? `<button type="button" class="danger" data-delete-project-document="${escapeHtml(file.path)}">Supprimer</button>` : ''}</article>`).join('')}</div>`
       : '<div class="project-document-empty">Aucun document associé à ce projet.</div>';
-    const uploadZone = canEdit() ? `<div class="project-document-dropzone" data-project-document-dropzone="${escapeHtml(project.id)}" tabindex="0" role="button" aria-label="Ajouter des documents au projet"><span>＋</span><div><b>Déposez les fichiers ici</b><small>ou cliquez pour sélectionner · 10 fichiers maximum · 10 Mo par fichier</small></div><button type="button" class="primary" data-add-project-documents="${escapeHtml(project.id)}">Choisir des fichiers</button></div>` : '';
+    const uploadZone = window.MoldCloud?.canManageAttachments() ? `<div class="project-document-dropzone" data-project-document-dropzone="${escapeHtml(project.id)}" tabindex="0" role="button" aria-label="Ajouter des documents au projet"><span>＋</span><div><b>Déposez les fichiers ici</b><small>ou cliquez pour sélectionner · 10 fichiers maximum · 10 Mo par fichier</small></div><button type="button" class="primary" data-add-project-documents="${escapeHtml(project.id)}">Choisir des fichiers</button></div>` : '';
     const section = `<section class="card project-documents-card"><div class="card-head"><div><span class="section-kicker">DOCUMENTS ASSOCIÉS</span><h3>Fichiers du projet</h3><span class="sub">Plans, cahiers des charges, devis, photos, fichiers CAO et documents techniques</span></div><span class="project-document-count">${files.length} / ${MAX_FILES}</span></div>${uploadZone}${fileList}</section>`;
     const workflowMarker = '<section class="card workflow-card">';
     return html.includes(workflowMarker) ? html.replace(workflowMarker, `${section}${workflowMarker}`) : `${html}${section}`;
@@ -44,7 +44,7 @@
   async function uploadFiles(fileList, projectId) {
     const files = [...(fileList || [])];
     const project = data.projects.find(item => item.id === projectId);
-    if (!files.length || !project || !canEdit()) return;
+    if (!files.length || !project || !window.MoldCloud?.canManageAttachments()) return;
     const existing = Array.isArray(project.documents) ? project.documents : [];
     if (existing.length + files.length > MAX_FILES) {
       toast(`Maximum ${MAX_FILES} documents associés par projet`);
@@ -78,7 +78,7 @@
     const add = event.target.closest('[data-add-project-documents]');
     const zone = event.target.closest('[data-project-document-dropzone]');
     if (add || (zone && !event.target.closest('button'))) {
-      if (!canEdit()) return;
+      if (!window.MoldCloud?.canManageAttachments()) return;
       targetProjectId = add?.dataset.addProjectDocuments || zone.dataset.projectDocumentDropzone;
       input.value = '';
       input.click();
@@ -86,16 +86,14 @@
     }
     const open = event.target.closest('[data-open-project-document]');
     if (open) {
-      const popup = window.open('about:blank', '_blank');
-      if (popup) popup.opener = null;
+      const project = data.projects.find(item => item.id === selectedProjectId);
+      const file = project?.documents?.find(item => item.path === open.dataset.openProjectDocument);
       open.disabled = true;
       try {
         const url = await window.MoldCloud.achatAttachmentUrl(open.dataset.openProjectDocument);
         if (!url) throw new Error('Document introuvable');
-        if (popup) popup.location.replace(url);
-        else window.location.href = url;
+        await window.ToolDocumentViewer.open(url, file || {name:open.dataset.openProjectDocument.split('/').pop(), path:open.dataset.openProjectDocument});
       } catch (error) {
-        popup?.close();
         toast(error.message || 'Impossible d’ouvrir le document');
       } finally {
         open.disabled = false;
@@ -103,7 +101,7 @@
       return;
     }
     const remove = event.target.closest('[data-delete-project-document]');
-    if (!remove || !canEdit()) return;
+    if (!remove || !window.MoldCloud?.canManageAttachments()) return;
     const project = data.projects.find(item => item.id === selectedProjectId);
     const path = remove.dataset.deleteProjectDocument;
     if (!project || !confirm('Supprimer définitivement ce document du projet ?')) return;

@@ -73,7 +73,7 @@
     form._projectLogRemovedDocuments = new Set();
     form._projectLogFiles = [];
     document.querySelector('#formFields').insertAdjacentHTML('beforeend', `
-      <div class="field full project-log-photo-field">
+      <div class="field full project-log-photo-field" ${window.MoldCloud?.canManageAttachments() ? '' : 'style="display:none"'}>
         <label>Photos et PDF du journal <span class="optional-label">(maximum ${MAX_ATTACHMENTS})</span></label>
         <div class="project-log-photo-editor" id="projectLogPhotoEditor">${photos.map(photo => `
           <figure class="project-log-photo-preview" data-project-log-existing="${escapeHtml(photo.path)}">
@@ -164,11 +164,12 @@
     const project = data.projects.find(item => item.id === form.dataset.editId);
     const logId = form.dataset.logId;
     const existing = (project?.workLogs || []).find(item => item.id === logId);
-    const removed = form._projectLogRemovedPhotos || new Set();
-    const removedDocuments = form._projectLogRemovedDocuments || new Set();
+    const manager = window.MoldCloud?.canManageAttachments();
+    const removed = manager && form._projectLogRemovedPhotos || new Set();
+    const removedDocuments = manager && form._projectLogRemovedDocuments || new Set();
     const retained = photosFor(existing).filter(photo => !removed.has(photo.path));
     const retainedDocuments = documentsFor(existing).filter(document => !removedDocuments.has(document.path));
-    const selected = form._projectLogFiles || [];
+    const selected = manager ? form._projectLogFiles || [] : [];
     if (!project || (logId && !existing)) return showError('Journal introuvable. Rechargez la page.');
     if (retained.length + retainedDocuments.length + selected.length > MAX_ATTACHMENTS) return showError(`Maximum ${MAX_ATTACHMENTS} fichiers par entrée.`);
     const submit = form.querySelector('[type="submit"]');
@@ -286,10 +287,12 @@
     if (!button) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (!canEdit() || !confirm('Supprimer ce journal de travail et ses fichiers ?')) return;
+    if (!canEdit()) return;
     const project = data.projects.find(item => item.id === button.dataset.logProjectId);
     const log = (project?.workLogs || []).find(item => item.id === button.dataset.deleteLog);
     if (!project || !log) return;
+    if ((photosFor(log).length || documentsFor(log).length) && !window.MoldCloud?.canManageAttachments()) return toast('Les pièces jointes sont en lecture seule pour ce compte.');
+    if (!confirm('Supprimer ce journal de travail et ses fichiers ?')) return;
     project.workLogs = project.workLogs.filter(item => item.id !== log.id);
     save();
     render();

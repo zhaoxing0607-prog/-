@@ -462,10 +462,16 @@ window.MoldCloud = (() => {
     return true;
   }
 
+  const canManageAttachments = () => Boolean(enabled && member?.active && member.role === 'admin' &&
+    session?.user?.email?.trim().toLowerCase() === 'be@pageot.eu');
+  const requireAttachmentManager = () => {
+    if (!canManageAttachments()) throw new Error('Les pièces jointes sont en lecture seule pour ce compte.');
+  };
+
   // Les photos restent dans un bucket privé : elles ne sont accessibles qu'avec
   // la session de l'utilisateur connecté. L'interface les réduit avant l'envoi.
   async function uploadPannePhoto(repairId, file) {
-    if (!enabled || !session || member?.role !== 'admin') throw new Error('Droits administrateur requis pour ajouter une photo');
+    requireAttachmentManager();
     if (!file) throw new Error('Aucun fichier sélectionné');
     const safeName = String(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${String(repairId).replace(/[^a-zA-Z0-9_-]/g, '_')}/${Date.now()}-${safeName}`;
@@ -478,7 +484,8 @@ window.MoldCloud = (() => {
   }
 
   async function removePannePhoto(objectPath) {
-    if (!enabled || !session || member?.role !== 'admin' || !objectPath) return false;
+    requireAttachmentManager();
+    if (!objectPath) return false;
     await request('/storage/v1/object/panne-photos', {
       method: 'DELETE',
       body: JSON.stringify({ prefixes: [objectPath] })
@@ -497,7 +504,7 @@ window.MoldCloud = (() => {
   }
 
   async function uploadPanneDocument(repairId, file) {
-    if (!enabled || !session || member?.role !== 'admin') throw new Error('Droits administrateur requis pour ajouter un document');
+    requireAttachmentManager();
     if (!file || (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || ''))) throw new Error('Sélectionnez un fichier PDF');
     const safeName = String(file.name || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${String(repairId).replace(/[^a-zA-Z0-9_-]/g, '_')}/${Date.now()}-${safeName}`;
@@ -510,7 +517,8 @@ window.MoldCloud = (() => {
   }
 
   async function removePanneDocument(objectPath) {
-    if (!enabled || !session || member?.role !== 'admin' || !objectPath) return false;
+    requireAttachmentManager();
+    if (!objectPath) return false;
     await request('/storage/v1/object/panne-documents', {
       method: 'DELETE',
       body: JSON.stringify({ prefixes: [objectPath] })
@@ -529,13 +537,14 @@ window.MoldCloud = (() => {
   }
 
   async function uploadAchatAttachment(ownerKey, file, onProgress = null) {
-    if (!enabled || !session || !member?.active) throw new Error('Connexion requise pour ajouter un fichier');
+    requireAttachmentManager();
     if (!file) throw new Error('Aucun fichier sélectionné');
     const safeOwner = String(ownerKey || 'achat').replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = String(file.name || 'fichier').replace(/[^a-zA-Z0-9._-]/g, '_');
     const objectPath = `${session.user.id}/${safeOwner}/${Date.now()}-${safeName}`;
     const is3d = /\.(stl|obj|glb|gltf|stp|step)$/i.test(file.name || '');
-    const contentType = is3d ? 'application/octet-stream' : (file.type || 'application/octet-stream');
+    const isGenericAttachment = /\.(tiff?|pptx?|gif|dwg)$/i.test(file.name || '');
+    const contentType = is3d || isGenericAttachment ? 'application/octet-stream' : (file.type || 'application/octet-stream');
     if (file.size > 6 * 1024 * 1024 && window.tus?.Upload) {
       const baseUrl = new URL(config.supabaseUrl);
       const directHost = baseUrl.hostname.endsWith('.supabase.co')
@@ -581,6 +590,7 @@ window.MoldCloud = (() => {
   }
 
   async function removeAchatAttachment(objectPath) {
+    requireAttachmentManager();
     if (!enabled || !session || !member?.active || !objectPath) return false;
     await request('/storage/v1/object/achat-attachments', {
       method: 'DELETE',
@@ -666,6 +676,7 @@ window.MoldCloud = (() => {
     achatAttachmentUrl,
     showLogin,
     enabled,
+    canManageAttachments,
     canWrite: () => !enabled || member?.role === 'admin',
     getRole: () => member?.role || (enabled ? null : 'admin'),
     getMember: () => member,

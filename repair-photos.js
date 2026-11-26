@@ -2,7 +2,7 @@
   const MAX_PHOTOS = 2;
   const MAX_SIZE = 3 * 1024 * 1024;
   const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const photoHtml = photo => `<figure class="repair-photo" data-photo-path="${photo.path}"><button type="button" class="open-repair-photo" data-open-repair-photo aria-label="Agrandir la photo ${photo.name || ''}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"></button><figcaption>${photo.name || 'Photo'}</figcaption>${canEdit() ? `<button type="button" class="delete-repair-photo" data-delete-repair-photo="${photo.path}">Supprimer la photo</button>` : ''}</figure>`;
+  const photoHtml = photo => `<figure class="repair-photo" data-photo-path="${photo.path}"><button type="button" class="open-repair-photo" data-open-repair-photo aria-label="Agrandir la photo ${photo.name || ''}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"></button><figcaption>${photo.name || 'Photo'}</figcaption>${window.MoldCloud?.canManageAttachments() ? `<button type="button" class="delete-repair-photo" data-delete-repair-photo="${photo.path}">Supprimer la photo</button>` : ''}</figure>`;
 
   async function hydratePhotos(root = document) {
     const images = [...root.querySelectorAll('[data-panne-photo]')];
@@ -22,7 +22,7 @@
     let html = baseRepairDashboard();
     if (!repair) return html;
     const photos = Array.isArray(repair.photos) ? repair.photos : [];
-    const addButton = canEdit() && photos.length < MAX_PHOTOS ? `<button type="button" class="primary add-repair-photo" data-add-repair-photo="${repair.id}">＋ Ajouter des photos</button>` : '';
+    const addButton = window.MoldCloud?.canManageAttachments() && photos.length < MAX_PHOTOS ? `<button type="button" class="primary add-repair-photo" data-add-repair-photo="${repair.id}">＋ Ajouter des photos</button>` : '';
     const section = `<section class="card repair-photos-card"><div class="card-head"><div><span class="section-kicker">CONSTAT VISUEL</span><h3>Photos de la panne</h3></div><div class="repair-photo-head-actions"><span class="photo-counter">${photos.length} / ${MAX_PHOTOS}</span>${addButton}</div></div>${photos.length ? `<div class="repair-photos-grid">${photos.map(photoHtml).join('')}</div>` : '<div class="empty">Aucune photo ajoutée pour cette panne.</div>'}</section>`;
     return html + section;
   };
@@ -59,7 +59,7 @@
 
   function editorHtml(photos) {
     const existing = photos.map(photo => `<figure class="repair-photo repair-photo-edit" data-photo-path="${photo.path}"><img alt="${photo.name || 'Photo de la panne'}" data-panne-photo="${photo.path}"><figcaption>${photo.name || 'Photo'}</figcaption><button type="button" class="remove-repair-photo" data-remove-photo="${photo.path}">Retirer</button></figure>`).join('');
-    return `<div class="field full repair-photo-field"><label>Photos de la panne <span class="optional-label">(maximum 2)</span></label><div class="repair-photo-editor" id="repairPhotoEditor">${existing || '<div class="photo-empty">Aucune photo. Ajoutez jusqu’à 2 photos.</div>'}</div><input type="file" name="repairPhotos" id="repairPhotosInput" accept="image/jpeg,image/png,image/webp" multiple><small>JPG, PNG ou WebP · compression automatique avant envoi · 2 photos maximum.</small><div class="ticket-form-error" id="repairPhotoError" role="alert"></div></div>`;
+    return `<div class="field full repair-photo-field" ${window.MoldCloud?.canManageAttachments() ? '': 'style="display:none"'}><label>Photos de la panne <span class="optional-label">(maximum 2)</span></label><div class="repair-photo-editor" id="repairPhotoEditor">${existing || '<div class="photo-empty">Aucune photo. Ajoutez jusqu’à 2 photos.</div>'}</div><input type="file" name="repairPhotos" id="repairPhotosInput" accept="image/jpeg,image/png,image/webp" multiple><small>JPG, PNG ou WebP · compression automatique avant envoi · 2 photos maximum.</small><div class="ticket-form-error" id="repairPhotoError" role="alert"></div></div>`;
   }
 
   const baseOpenModal = openModal;
@@ -109,7 +109,7 @@
     const addPhoto = event.target.closest('[data-add-repair-photo]');
     if (addPhoto) {
       const repair = data.repairs.find(item => item.id === addPhoto.dataset.addRepairPhoto);
-      if (!repair || !canEdit()) return;
+      if (!repair || !window.MoldCloud?.canManageAttachments()) return;
       openModal('repairs', repair);
       setTimeout(() => {
         const field = document.querySelector('#repairPhotosInput');
@@ -140,7 +140,7 @@
     if (deletePhoto) {
       const path = deletePhoto.dataset.deleteRepairPhoto;
       const repair = data.repairs.find(item => item.id === selectedRepairId);
-      if (!canEdit() || !repair || !path || !confirm('Supprimer définitivement cette photo de la panne ?')) return;
+      if (!window.MoldCloud?.canManageAttachments() || !repair || !path || !confirm('Supprimer définitivement cette photo de la panne ?')) return;
       deletePhoto.disabled = true;
       window.MoldCloud.removePannePhoto(path).then(() => {
         repair.photos = (repair.photos || []).filter(photo => photo.path !== path);
@@ -205,8 +205,9 @@
     const error = document.querySelector('#repairPhotoError');
     const editId = form.dataset.editId;
     const existing = editId ? data.repairs.find(item => item.id === editId) : null;
-    const retained = (existing?.photos || []).filter(photo => !form._removedRepairPhotos?.has(photo.path));
-    const files = form._selectedRepairFiles || [];
+    const manager = window.MoldCloud?.canManageAttachments();
+    const retained = (existing?.photos || []).filter(photo => !manager || !form._removedRepairPhotos?.has(photo.path));
+    const files = manager ? form._selectedRepairFiles || [] : [];
     if (retained.length + files.length > MAX_PHOTOS) {
       error.textContent = `Cette panne peut contenir au maximum ${MAX_PHOTOS} photos.`;
       error.classList.add('visible');
@@ -242,7 +243,7 @@
         if (mould) mould.status = 'Dispo';
       }
       save();
-      await Promise.all([...form._removedRepairPhotos].map(path => window.MoldCloud.removePannePhoto(path).catch(() => null)));
+      if (manager) await Promise.all([...form._removedRepairPhotos].map(path => window.MoldCloud.removePannePhoto(path).catch(() => null)));
       closeModal();
       view = 'repairs';
       filter = 'Tous';

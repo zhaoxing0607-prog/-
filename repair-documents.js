@@ -14,8 +14,8 @@
     const html = baseRepairDashboard();
     if (!repair) return html;
     const document = repair.document?.path ? repair.document : null;
-    const actions = canEdit() ? `<button type="button" class="primary repair-document-add" data-add-repair-document="${repair.id}">${document ? '↻ Remplacer le PDF' : '＋ Ajouter un PDF'}</button>` : '';
-    const content = document ? `<div class="repair-document-file"><div class="repair-document-icon">PDF</div><div><b>${escapeHtml(document.name || 'Document associé.pdf')}</b><span>${formatSize(document.size)}</span></div><div class="repair-document-actions"><button type="button" data-open-repair-document="${escapeHtml(document.path)}">Ouvrir / télécharger</button>${canEdit() ? `<button type="button" class="danger" data-delete-repair-document="${escapeHtml(document.path)}">Supprimer</button>` : ''}</div></div>` : '<div class="empty">Aucun document PDF associé à cette panne.</div>';
+    const actions = window.MoldCloud?.canManageAttachments() ? `<button type="button" class="primary repair-document-add" data-add-repair-document="${repair.id}">${document ? '↻ Remplacer le PDF' : '＋ Ajouter un PDF'}</button>` : '';
+    const content = document ? `<div class="repair-document-file"><div class="repair-document-icon">PDF</div><div><b>${escapeHtml(document.name || 'Document associé.pdf')}</b><span>${formatSize(document.size)}</span></div><div class="repair-document-actions"><button type="button" data-open-repair-document="${escapeHtml(document.path)}">Ouvrir / télécharger</button>${window.MoldCloud?.canManageAttachments() ? `<button type="button" class="danger" data-delete-repair-document="${escapeHtml(document.path)}">Supprimer</button>` : ''}</div></div>` : '<div class="empty">Aucun document PDF associé à cette panne.</div>';
     return `${html}<section class="card repair-document-card"><div class="card-head"><div><span class="section-kicker">DOCUMENT ASSOCIÉ</span><h3>Fichier PDF de la panne</h3><span class="sub">Plan, rapport, devis ou document technique</span></div>${actions}</div>${content}</section>`;
   };
 
@@ -26,7 +26,7 @@
   document.addEventListener('click', async event => {
     const add = event.target.closest('[data-add-repair-document]');
     if (add) {
-      if (!canEdit()) return;
+      if (!window.MoldCloud?.canManageAttachments()) return;
       targetRepairId = add.dataset.addRepairDocument;
       input.value = '';
       input.click();
@@ -51,7 +51,7 @@
       return;
     }
     const remove = event.target.closest('[data-delete-repair-document]');
-    if (!remove || !canEdit()) return;
+    if (!remove || !window.MoldCloud?.canManageAttachments()) return;
     const repair = data.repairs.find(item => item.id === selectedRepairId);
     if (!repair?.document?.path || !confirm('Supprimer définitivement le document PDF associé ?')) return;
     remove.disabled = true;
@@ -70,7 +70,7 @@
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
     const repair = data.repairs.find(item => item.id === (targetRepairId || selectedRepairId));
-    if (!file || !repair || !canEdit()) return;
+    if (!file || !repair || !window.MoldCloud?.canManageAttachments()) return;
     if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
       toast('Sélectionnez uniquement un fichier PDF');
       return;

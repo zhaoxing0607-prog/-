@@ -7,8 +7,8 @@
   <title>Expedit ToolManager · Gestion des outillages</title>
   <link rel="stylesheet" href="styles.css?v=20261124-invoice-archive" />
   <link rel="stylesheet" href="invoice-manager.css?v=20261124-invoice-archive" />
-  <link rel="stylesheet" href="mould-bom.css?v=20261124-stp-upload" />
-  <link rel="stylesheet" href="machine-module.css?v=20261124" />
+  <link rel="stylesheet" href="mould-bom.css?v=20261125-bom-lists" />
+  <link rel="stylesheet" href="machine-module.css?v=20261125-machine-preview" />
   <link rel="stylesheet" href="material-calculator.css?v=20261109-part-selection" />
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
   <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
@@ -52,7 +52,7 @@
     <section class="modal ticket-modal"><div class="modal-head"><div><span class="eyebrow" id="pressProjectTicketEyebrow">DEMANDE DE PROJET</span><h2 id="pressProjectTicketTitle">Créer un ticket projet</h2></div><button class="close-btn" id="closePressProjectTicketModal" type="button" title="Fermer" aria-label="Fermer la fenêtre">×</button></div><form id="pressProjectTicketForm"><div class="form-grid"><div class="field full"><label>Nom du projet</label><input name="projectName" required maxlength="160" placeholder="Ex. Nouvel outillage ou équipement"></div><div class="field"><label>Client</label><input name="customer" maxlength="120" placeholder="Facultatif"></div><div class="field"><label>Priorité</label><select name="priority" required><option>Normal</option><option>Élevé</option><option>Urgent</option></select></div><div class="field full"><label>Description / besoin</label><textarea name="description" required maxlength="3000" placeholder="Décrivez le besoin, les travaux attendus et les contraintes…"></textarea></div><div class="field full"><label>Demandeur</label><input id="pressProjectTicketRequester" readonly></div><div class="ticket-form-error full" id="pressProjectTicketFormError" role="alert"></div></div><div class="modal-actions"><button type="button" class="secondary" id="cancelPressProjectTicketModal">Annuler</button><button type="submit" class="primary" id="pressProjectTicketSubmit">Envoyer la demande</button></div></form></section>
   </div>
   <div id="syncStatus" class="sync-status">Mode local</div><div id="toast"></div>
-  <script src="cloud.js?v=20261124-resumable-upload"></script>
+  <script src="cloud.js?v=20261126-dwg"></script>
   <script src="nomenclature-export.js?v=20261105-tool-parameters"></script>
   <script src="app.js?v=20261122-project-tracking-mould-relations"></script>
   <script src="repair-list-cleanup.js?v=20260811-repair-list-no-cost"></script>
@@ -60,11 +60,12 @@
   <script src="sertissage-project-workflow.js?v=20260814-mise-au-point"></script>
   <script src="purchase-journal.js?v=20261124-hidden-detail"></script>
   <script src="memo-collapse.js?v=20260811-memo-collapse"></script>
-  <script src="repair-photos.js?v=20261001-hardness"></script>
-  <script src="repair-documents.js?v=20260918-repair-pdf"></script>
-  <script src="project-log-photos.js?v=20261009-project-log-pdf"></script>
-  <script src="purchase-attachments.js?v=20261124-hidden-detail"></script>
-  <script src="part-attachments.js?v=20261124-bom-viewer"></script>
+  <script src="repair-photos.js?v=20261125-attachment-access"></script>
+  <script src="repair-documents.js?v=20261125-attachment-access"></script>
+  <script src="project-log-photos.js?v=20261125-attachment-access"></script>
+  <script src="purchase-attachments.js?v=20261125-file-download"></script>
+  <script src="presentation-preview.js?v=20261125"></script>
+  <script src="part-attachments.js?v=20261126-dwg"></script>
   <script src="press-projects.js?v=20261109-merged"></script>
   <script src="material-pdf-export.js?v=20261109"></script>
   <script src="material-calculator.js?v=20261119-mould-relations"></script>
@@ -74,9 +75,9 @@
   <script src="detail-back.js?v=20261016"></script>
   <script src="project-timeline.js?v=20261122-comparison"></script>
   <script src="project-costs.js?v=20261122-external-machining"></script>
-  <script src="project-attachments.js?v=20261123"></script>
-  <script src="invoice-manager.js?v=20261124-invoice-archive"></script>
-  <script src="mould-bom.js?v=20261124-resumable-delete"></script>
-  <script src="machine-module.js?v=20261124"></script>
+  <script src="project-attachments.js?v=20261125-file-download"></script>
+  <script src="invoice-manager.js?v=20261125-attachment-access"></script>
+  <script src="mould-bom.js?v=20261126-dwg"></script>
+  <script src="machine-module.js?v=20261125-attachment-access"></script>
 </body>
 </html>

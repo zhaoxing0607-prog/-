@@ -1,14 +1,24 @@
 .mould-bom-card{margin:18px 0;padding:24px;border-color:#cfe0d7;box-shadow:0 10px 28px rgba(12,64,48,.07)}
 .mould-bom-card h3{margin:5px 0 4px;font-size:18px}
 .bom-head-actions{display:flex;align-items:center;gap:12px}
+.machine-bom-list{margin-top:12px;border:1px solid #dce8e0;border-radius:10px;overflow:hidden}
+.machine-bom-list summary{padding:12px 16px;cursor:pointer;background:#f2f7f4;overflow-wrap:anywhere}
+.machine-bom-list summary span{margin-left:8px;color:var(--muted);font-size:11px}
+.machine-bom-body{padding:12px}
+.mould-bom-card .bom-head-actions{margin-bottom:10px;flex-wrap:wrap}
 .bom-head-actions>span{color:var(--muted);font-size:11px;font-weight:800}
 .bom-table-wrap{overflow-x:auto;border:1px solid #e0e8e3;border-radius:12px}
 .bom-table{width:100%;min-width:1050px;border-collapse:collapse;background:#fff}
 .bom-table th{padding:12px;background:#f2f7f4;color:#68776f;font-size:10px;text-align:left;text-transform:uppercase;letter-spacing:.04em}
 .bom-table td{padding:13px 12px;border-top:1px solid #e7ede9;font-size:12px;vertical-align:middle}
 .bom-table td:first-child{min-width:180px}
+.bom-table td.bom-comment{min-width:130px;max-width:240px;white-space:pre-wrap;overflow-wrap:anywhere}
 .bom-component-id{display:block;margin-bottom:4px;color:#0b6748;font-size:9px;font-weight:900}
 .bom-component-name{display:block;font-size:13px}
+.bom-standard-summary{display:grid;justify-items:start;gap:3px;margin-top:5px;overflow-wrap:anywhere}
+.bom-standard-summary strong{padding:2px 7px;border-radius:999px;background:#e0f1e8;color:#126442;font-size:10px}
+.bom-standard-summary small{color:#51645a}
+.bom-standard-field[hidden]{display:none}
 .bom-heat{display:inline-flex;border-radius:999px;padding:5px 9px;background:#eef1ef;color:#68776f;font-size:10px;font-weight:800}
 .bom-heat.yes{background:#e0f1e8;color:#126442}
 .bom-file-button{display:flex;width:180px;min-width:0;align-items:center;gap:8px;border:1px solid #cfe0d7;border-radius:9px;padding:7px 9px;background:#f5faf7;color:#174331;text-align:left;cursor:pointer}
