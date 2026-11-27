@@ -98,6 +98,103 @@
     });
 
     if (commands.length) { footer(); pages.push(commands.join('\n')); }
+    return buildPdf(pages);
+  }
+
+  function buildToolParametersPdf(rows) {
+    return buildParametersPdf(rows, 'Paramètres des moules', 'moule', [
+      ['N° de moule', 86, 'toolNumber'], ['Nom du moule', 208, 'toolName'],
+      ['Catégorie', 122, 'category'], ['Projet lié', 90, 'projectNumber'],
+      ['Largeur (mm)', 80, 'stripWidth'], ['Pas (mm)', 74, 'pitch'],
+      ['Épaisseur max. (mm)', 98, 'thickness']
+    ]);
+  }
+
+  function buildPartParametersPdf(rows) {
+    return buildParametersPdf(rows, 'Paramètres des pièces', 'pièce', [
+      ['ID', 56, 'id'], ['Code article', 78, 'articleCode'],
+      ['Famille', 96, 'family'], ['Nom de la pièce', 135, 'name'],
+      ['Matière', 66, 'material'], ['Ép. (mm)', 54, 'thickness'],
+      ['Poids (g)', 54, 'weight'], ['Moules associés', 78, 'moulds'],
+      ['Commentaire', 83, 'comment'], ['Informations', 58, 'validation']
+    ]);
+  }
+
+  function buildParametersPdf(rows, title, noun, columns) {
+    const pages = [];
+    let commands = [], y;
+    const text = (value, x, top, size, bold = false, fill = '0.08 0.19 0.15') =>
+      commands.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${fill} rg ${x} ${top} Td (${pdfText(value)}) Tj ET`);
+    const background = (top, height, fill) =>
+      commands.push(`${fill} rg ${MARGIN} ${top - height} ${PAGE_W - 2 * MARGIN} ${height} re f`);
+    const finish = () => {
+      text(`Page ${pages.length + 1}`, PAGE_W - MARGIN - 50, 22, 9);
+      pages.push(commands.join('\n'));
+    };
+    const start = () => {
+      commands = [];
+      text('EXPEDIT TOOLMANAGER', MARGIN, 552, 11, true);
+      text(title, MARGIN, 522, 23, true);
+      text(`${rows.length} ${noun}(s) sélectionné(s)`, MARGIN, 500, 10);
+      background(481, 25, '0.07 0.34 0.25');
+      let x = MARGIN;
+      for (const [label, width] of columns) {
+        text(label, x + 6, 465, 8, true, '1 1 1');
+        x += width;
+      }
+      y = 456;
+    };
+    const measure = value => [...value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')].reduce((sum, c) =>
+      sum + (/[MW@%]/.test(c) ? 9.4 : /[mw]/.test(c) ? 8 : /[A-Z]/.test(c) ? 7 : /[ il.,:!']/i.test(c) && c !== 'I' ? 3 : 6), 0);
+    const cellLines = (value, width) => {
+      const max = width - 12;
+      const display = typeof value === 'number' ? value.toLocaleString('fr-FR', {useGrouping:false, maximumFractionDigits:8}) : value || '-';
+      const lines = [];
+      let line = '';
+      for (let word of clean(display).trim().split(/\s+/)) {
+        if (line && measure(`${line} ${word}`) > max) {
+          lines.push(line);
+          line = '';
+        }
+        while (measure(word) > max) {
+          let end = 1;
+          while (measure(word.slice(0, end + 1)) <= max) end++;
+          lines.push(word.slice(0, end));
+          word = word.slice(end);
+        }
+        if (word) line = line ? `${line} ${word}` : word;
+      }
+      if (line) lines.push(line);
+      return lines.length ? lines : [''];
+    };
+    start();
+    rows.forEach((row, index) => {
+      const cells = columns.map(([, width, key]) => cellLines(row[key], width));
+      const lineCount = Math.max(...cells.map(cell => cell.length));
+      for (let offset = 0; offset < lineCount;) {
+        const remaining = lineCount - offset;
+        const pageCapacity = Math.floor((456 - 42 - 12) / 12);
+        if ((remaining <= pageCapacity && y - (remaining * 12 + 12) < 42) || y < 66) {
+          finish();
+          start();
+        }
+        const count = Math.min(remaining, Math.floor((y - 42 - 12) / 12));
+        const height = count * 12 + 12;
+        background(y, height, index % 2 ? '0.93 0.97 0.95' : '0.98 0.99 0.98');
+        let x = MARGIN;
+        cells.forEach((lines, column) => {
+          lines.slice(offset, offset + count).forEach((line, i) => text(line, x + 6, y - 15 - i * 12, 9, column === 0));
+          x += columns[column][1];
+        });
+        y -= height;
+        offset += count;
+      }
+    });
+    finish();
+    return buildPdf(pages);
+  }
+
+  function buildPdf(pages) {
     const objects = [''], pageIds = [], contentIds = [], fontRegular = 3 + pages.length * 2, fontBold = fontRegular + 1;
     pages.forEach((page, index) => {
       const pageId = 3 + index * 2, contentId = pageId + 1;
@@ -123,5 +220,5 @@
     anchor.href = url; anchor.download = filename; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return {buildMaterialReportPdf, download, fmt};
+  return {buildMaterialReportPdf, buildToolParametersPdf, buildPartParametersPdf, download, fmt};
 });

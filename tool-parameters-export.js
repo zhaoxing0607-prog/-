@@ -1,5 +1,8 @@
 (() => {
-  const selectedMouldIds = new Set();
+  const selectedIds = {moulds: new Set(), parts: new Set()};
+  const selectionText = (count, type) => type === 'parts'
+    ? `${count} pièce${count === 1 ? '' : 's'} sélectionnée${count === 1 ? '' : 's'}`
+    : `${count} outil${count === 1 ? '' : 's'} sélectionné${count === 1 ? '' : 's'}`;
   const presentNumber = value => {
     const number = Number(value);
     return Number.isFinite(number) && number !== 0 ? number : '';
@@ -8,59 +11,63 @@
   const previousListPage = listPage;
   listPage = type => {
     const html = previousListPage(type);
-    if (type !== 'moulds') return html;
+    if (type !== 'moulds' && type !== 'parts') return html;
 
-    const validIds = new Set(data.moulds.map(mould => mould.id));
-    [...selectedMouldIds].forEach(id => { if (!validIds.has(id)) selectedMouldIds.delete(id); });
-    const visibleIds = [...new Set([...html.matchAll(/data-mould-link="([^"]+)"/g)].map(match => match[1]))];
-    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedMouldIds.has(id));
-    const count = selectedMouldIds.size;
-    let output = html.replace(
-      '<span class="sub">',
-      `<div class="tool-parameter-actions"><span data-tool-selection-count>${count} outil${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}</span><button class="primary" data-export-tool-parameters ${count ? '' : 'disabled'}>Exporter PARAMÈTRES OUTIL</button></div><span class="sub">`
-    );
+    const parts = type === 'parts', kind = parts ? 'part' : 'mould', selected = selectedIds[type];
+    const validIds = new Set(data[type].map(record => record.id));
+    selected.forEach(id => { if (!validIds.has(id)) selected.delete(id); });
+    const rowStart = new RegExp(`<tr(?: class="[^"]*")?>(?=<td><button class="relation-link" data-${kind}-link="([^"]+)")`, 'g');
+    const visibleIds = [...html.matchAll(rowStart)].map(match => match[1]);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
+    const count = selected.size;
+    const actions = `<div class="tool-parameter-actions"><span data-tool-selection-count>${selectionText(count, type)}</span><button type="button" class="primary" data-export-tool-parameters="${type}" ${count ? '' : 'disabled'}>Exporter les paramètres en PDF</button></div>`;
+    let output = parts
+      ? html.replace('<div class="table-wrap">', `<div class="toolbar">${actions}</div><div class="table-wrap">`)
+      : html.replace('<span class="sub">', `${actions}<span class="sub">`);
     output = output.replace(
       '<thead><tr>',
-      `<thead><tr><th class="mould-select-column"><input type="checkbox" data-select-all-moulds aria-label="Sélectionner tous les outils affichés" ${allSelected ? 'checked' : ''}></th>`
+      `<thead><tr><th class="mould-select-column"><input type="checkbox" data-select-all-parameters="${type}" aria-label="${parts ? 'Sélectionner toutes les pièces affichées' : 'Sélectionner tous les outils affichés'}" ${allSelected ? 'checked' : ''} ${visibleIds.length ? '' : 'disabled'}></th>`
     );
     output = output.replace(
-      /<tr class="([^"]*)">(?=<td><button class="relation-link" data-mould-link="([^"]+)")/g,
-      (match, rowClass, id) => `${match}<td class="mould-select-column"><input type="checkbox" data-select-mould="${id}" aria-label="Sélectionner ${id}" ${selectedMouldIds.has(id) ? 'checked' : ''}></td>`
+      rowStart,
+      (match, id) => `${match}<td class="mould-select-column"><input type="checkbox" data-select-parameter="${escapeRepairActor(id)}" data-parameter-type="${type}" aria-label="Sélectionner ${escapeRepairActor(id)}" ${selected.has(id) ? 'checked' : ''}></td>`
     );
-    return output.replace('colspan="12"', 'colspan="13"');
+    return output.replace(/<td colspan="\d+" class="empty">/, `<td colspan="${defs[type].headers.length + 1}" class="empty">`);
   };
 
-  function updateSelectionControls() {
-    const boxes = [...content.querySelectorAll('[data-select-mould]')];
-    const selectAll = content.querySelector('[data-select-all-moulds]');
+  function updateSelectionControls(type) {
+    const boxes = [...content.querySelectorAll('[data-select-parameter]')];
+    const selectAll = content.querySelector('[data-select-all-parameters]');
     const selectedVisible = boxes.filter(box => box.checked).length;
     if (selectAll) {
       selectAll.checked = boxes.length > 0 && selectedVisible === boxes.length;
       selectAll.indeterminate = selectedVisible > 0 && selectedVisible < boxes.length;
     }
-    const count = selectedMouldIds.size;
+    const count = selectedIds[type].size;
     const countLabel = content.querySelector('[data-tool-selection-count]');
     const exportButton = content.querySelector('[data-export-tool-parameters]');
-    if (countLabel) countLabel.textContent = `${count} outil${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
+    if (countLabel) countLabel.textContent = selectionText(count, type);
     if (exportButton) exportButton.disabled = count === 0;
   }
 
   content.addEventListener('change', event => {
-    const checkbox = event.target.closest('[data-select-mould]');
-    const selectAll = event.target.closest('[data-select-all-moulds]');
+    const checkbox = event.target.closest('[data-select-parameter]');
+    const selectAll = event.target.closest('[data-select-all-parameters]');
     if (!checkbox && !selectAll) return;
     event.stopImmediatePropagation();
+    const type = checkbox?.dataset.parameterType || selectAll.dataset.selectAllParameters;
+    const selected = selectedIds[type];
     if (checkbox) {
-      if (checkbox.checked) selectedMouldIds.add(checkbox.dataset.selectMould);
-      else selectedMouldIds.delete(checkbox.dataset.selectMould);
+      if (checkbox.checked) selected.add(checkbox.dataset.selectParameter);
+      else selected.delete(checkbox.dataset.selectParameter);
     } else {
-      content.querySelectorAll('[data-select-mould]').forEach(box => {
+      content.querySelectorAll('[data-select-parameter]').forEach(box => {
         box.checked = selectAll.checked;
-        if (selectAll.checked) selectedMouldIds.add(box.dataset.selectMould);
-        else selectedMouldIds.delete(box.dataset.selectMould);
+        if (selectAll.checked) selected.add(box.dataset.selectParameter);
+        else selected.delete(box.dataset.selectParameter);
       });
     }
-    updateSelectionControls();
+    updateSelectionControls(type);
   }, true);
 
   content.addEventListener('click', event => {
@@ -68,9 +75,22 @@
     if (!button) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    const moulds = data.moulds.filter(mould => selectedMouldIds.has(mould.id));
-    if (!moulds.length) { toast('Sélectionnez au moins un outil'); return; }
-    const rows = moulds.map(mould => ({
+    const type = button.dataset.exportToolParameters;
+    const parts = type === 'parts';
+    const records = data[type].filter(record => selectedIds[type].has(record.id));
+    if (!records.length) { toast(parts ? 'Sélectionnez au moins une pièce' : 'Sélectionnez au moins un outil'); return; }
+    const rows = parts ? records.map(part => ({
+      id: part.id,
+      articleCode: articleCodeLabel(part),
+      family: partFamily(part) || 'À classer',
+      name: part.name,
+      material: part.material,
+      thickness: Number(part.thickness || 0),
+      weight: Number(part.weight || 0),
+      moulds: mouldIdsForPart(part).join(', '),
+      comment: String(part.comment || '').trim(),
+      validation: part.validationStatus || 'Non validé'
+    })) : records.map(mould => ({
       toolNumber: mould.id || '',
       toolName: mould.name || '',
       category: mould.mouldCategory || mould.type || '',
@@ -79,11 +99,13 @@
       pitch: presentNumber(mould.rollingPitch),
       thickness: presentNumber(mould.maxThickness)
     }));
-    if (!window.NomenclatureXlsx?.downloadToolParameters) {
-      toast('Export Excel indisponible · rechargez la page');
+    const pdf = window.MaterialPdfExport;
+    const build = parts ? pdf?.buildPartParametersPdf : pdf?.buildToolParametersPdf;
+    if (!build) {
+      toast('Export PDF indisponible · rechargez la page');
       return;
     }
-    window.NomenclatureXlsx.downloadToolParameters(rows);
-    toast(`${rows.length} outil${rows.length > 1 ? 's' : ''} exporté${rows.length > 1 ? 's' : ''}`);
+    pdf.download(build(rows), parts ? 'parametres-pieces.pdf' : 'parametres-moules.pdf');
+    toast('Export PDF terminé');
   }, true);
 })();
